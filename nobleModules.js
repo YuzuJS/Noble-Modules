@@ -444,21 +444,24 @@
     //     for (var i in { a: 1, b: 2 }) { console.log(i); }
     // This outputs "a", "b", "main"!!
 
-    NobleJSModule.prototype.declare = function (dependencyIdentifiers, moduleFactory) {
+    NobleJSModule.prototype.declare = function (dependencies, moduleFactory) {
         if (moduleFactory === undefined) {
-            moduleFactory = dependencyIdentifiers;
-            dependencyIdentifiers = [];
-        } else if (!Array.isArray(dependencyIdentifiers)) {
-            throw new TypeError("dependencyIdentifiers must be an array");
+            moduleFactory = dependencies;
+            dependencies = [];
+        } else if (!Array.isArray(dependencies)) {
+            throw new TypeError("dependencies must be an array");
         }
         if (typeof moduleFactory !== "function") {
             throw new TypeError("moduleFactory must be a function");
         }
-        if (dependencyIdentifiers.some(function (arrayEntry) { return typeof arrayEntry !== "string"; })) {
-            throw new TypeError("dependencyIdentifiers must be an array of strings.");
+        if (!dependencies.every(function (arrayEntry) {
+            return typeof arrayEntry === "string" ||
+                  (typeof arrayEntry === "object" && Object.keys(arrayEntry).every(function (label) { return typeof arrayEntry[label] === "string"; }));
+        })) {
+            throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
         }
 
-        declareImpl(dependencyIdentifiers, moduleFactory);
+        declareImpl(dependencies, moduleFactory);
     };
 
     NobleJSModule.prototype.load = function (moduleIdentifier, onModuleLoaded) {

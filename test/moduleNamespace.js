@@ -23,12 +23,20 @@ moduleTest("declare: validates its arguments", function (require, exports, modul
             );
 
     // Case 2: dependencies array plus factory function
-    assertArgumentsValidated(module.declare.bind(module), { dependencyIdentifiers: Array, moduleFactory: Function });
-    assertArrayArgumentValidated(
-        function (dependencyIdentifiers) { return module.declare(dependencyIdentifiers, function () { }); },
-        String,
-        "dependencyIdentifiers"
-    );
+    assertArgumentsValidated(module.declare.bind(module), { dependencies: Array, moduleFactory: Function });
+
+    // TODO: test for validation that parameters are always either strings or objects that contain only string properties?
+});
+
+test("declare: using labeled dependency objects", function () {
+    module.declare([{ mathLabel: "demos/math" }], function (require, exports, module) {
+        strictEqual(require.id("mathLabel"), "demos/math", "The label was translated into the correct ID when using require.id");
+        strictEqual(require.uri("mathLabel"), "demos/math.js", "The label was translated into the correct URI when using require.uri");
+
+        var math = require("mathLabel");
+        strictEqual(typeof math, "object", 'demos/math module, labeled as "mathLabel," has been provided');
+        strictEqual(typeof math.add, "function", 'demos/math module, labeled as "mathLabel," has exported its add function');
+    });
 });
 
 moduleTest("load: validates its arguments", function (require, exports, module) {
@@ -45,8 +53,8 @@ asyncModuleTest("load: a module that has no dependencies", function (require, ex
 
         var math = require("demos/math");
         strictEqual(typeof math, "object", "module.load has properly provided the module (i.e. calling require returns an object)");
-        strictEqual(typeof math.add, "function", "Math module has exported its add function");
-        strictEqual(typeof math.multiply, "function", "Math module has exported its multiply function");
+        strictEqual(typeof math.add, "function", "demos/math module has exported its add function");
+        strictEqual(typeof math.multiply, "function", "demos/math module has exported its multiply function");
 
         start();
     });
