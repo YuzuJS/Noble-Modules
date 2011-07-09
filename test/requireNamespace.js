@@ -30,11 +30,6 @@ moduleTest("uri: relative paths", function (require, exports, module) {
 
 moduleTest("memoize: validates its arguments", function (require, exports, module) {
     assertArgumentsValidated(require.memoize.bind(require), { id: String, dependencies: Array, moduleFactory: Function });
-    assertArrayArgumentValidated(
-        function (dependencies) { return require.memoize("someId", dependencies, function () { }); },
-        String,
-        "dependencies"
-    );
 });
 
 moduleTest("memoize: cannot memoize a module that is already memoized", function (require, exports, module) {

@@ -86,17 +86,55 @@
         return id + MODULE_FILE_EXTENSION;
     }
 
-    function getUriFromIdentifier(relativeModuleDir, moduleIdentifier) {
-        var id = getIdFromIdentifier(relativeModuleDir, moduleIdentifier);
-        return getUriFromId(id);
+    function getIdsFromLabelsMap(moduleDir, dependencies) {
+        var map = {};
+        dependencies
+            .filter(function (dependency) { return typeof dependency === "object"; })
+            .forEach(function (labeledDependencyObject) {
+                Object.keys(labeledDependencyObject).forEach(function (label) {
+                    var identifier = labeledDependencyObject[label];
+                    map[label] = getIdFromIdentifier(moduleDir, identifier);
+                });
+            });
+
+        return map;
     }
 
-    function idsFromIdentifiers(identifiers, startingModuleId) {
+    function getIdsFromDependencies(dependencies, startingModuleId) {
         var startingModuleDir = getDirectoryPortion(startingModuleId);
 
-        return identifiers.map(function (identifier) {
-            return getIdFromIdentifier(startingModuleDir, identifier);
+        var ids = [];
+        function pushId(identifier) {
+            ids.push(getIdFromIdentifier(startingModuleDir, identifier));
+        }
+
+        dependencies.forEach(function (dependency) {
+            if (typeof dependency === "string") {
+                pushId(dependency);
+            } else {
+                Object.keys(dependency)
+                    .map(function (label) { return dependency[label]; })
+                    .forEach(pushId);
+            }
         });
+
+        return ids;
+    }
+
+    function isValidDependencyIdentifier(identifier) {
+        return typeof identifier === "string";
+    }
+
+    function isValidLabeledDependencyObject(object) {
+        return typeof object === "object" && Object.keys(object).every(isValidDependencyIdentifier);
+    }
+
+    function isValidDependencyArrayEntry(arrayEntry) {
+        return isValidDependencyIdentifier(arrayEntry) || isValidLabeledDependencyObject(arrayEntry);
+    }
+
+    function isValidDependencyArray(dependencies) {
+        return dependencies.every(isValidDependencyArrayEntry);
     }
 
     var memoizeListeners = (function () {
@@ -202,15 +240,19 @@
     }
 
     function requireFactory(moduleDir, dependencies) {
-        // TODO: use dependencies to implement labeling, i.e. object literals in the dependencies list.
-        // TODO: once that's done consider creating a prototype object to inherit from so as to not create new instances of e.g. require.id.
+        // TODO: consider creating a prototype object to inherit from so as to not create new instances of e.g. require.id.
+
+        var idsFromLabels = getIdsFromLabelsMap(moduleDir, dependencies);
+        function getId(identifier) {
+            return idsFromLabels.hasOwnProperty(identifier) ? idsFromLabels[identifier] : getIdFromIdentifier(moduleDir, identifier);
+        }
 
         var require = function (moduleIdentifier) {
             if (typeof moduleIdentifier !== "string") {
                 throw new TypeError("moduleIdentifier must be a string.");
             }
 
-            var id = getIdFromIdentifier(moduleDir, moduleIdentifier);
+            var id = getId(moduleIdentifier);
 
             if (!requireMemo.hasOwnProperty(id) && pendingDeclarations.hasOwnProperty(id)) {
                 initializeModule(id);
@@ -228,7 +270,7 @@
                 throw new TypeError("moduleIdentifier must be a string");
             }
 
-            return getIdFromIdentifier(moduleDir, moduleIdentifier);
+            return getId(moduleIdentifier);
         };
 
         require.uri = function (moduleIdentifier) {
@@ -236,7 +278,7 @@
                 throw new TypeError("moduleIdentifier must be a string");
             }
 
-            return getUriFromIdentifier(moduleDir, moduleIdentifier);
+            return getUriFromId(getId(moduleIdentifier));
         };
 
         require.memoize = function (id, dependencies, moduleFactory) {
@@ -249,8 +291,8 @@
             if (typeof moduleFactory !== "function") {
                 throw new TypeError("moduleFactory must be a function for " + id + ".");
             }
-            if (dependencies.some(function (arrayEntry) { return typeof arrayEntry !== "string"; })) {
-                throw new TypeError("dependencies must be an array of strings.");
+            if (!isValidDependencyArray(dependencies)) {
+                throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
             }
 
             if (isMemoizedImpl(id)) {
@@ -382,13 +424,14 @@
         );
     }
 
-    function provideImpl(thisId, dependencyIdentifiers, onAllProvided) {
-        if (dependencyIdentifiers.length === 0) {
+    function provideImpl(thisId, dependencies, onAllProvided) {
+        if (dependencies.length === 0) {
             onAllProvided();
             return;
         }
 
-        var dependencyIds = idsFromIdentifiers(dependencyIdentifiers, thisId);
+
+        var dependencyIds = getIdsFromDependencies(dependencies, thisId);
 
         var providedSoFar = [];
         function onDependencyProvided(id) {
@@ -478,21 +521,21 @@
         loadImpl(this.id, moduleIdentifier, onModuleLoaded);
     };
 
-    NobleJSModule.prototype.provide = function (dependencyIdentifiers, onAllProvided) {
-        if (!Array.isArray(dependencyIdentifiers)) {
-            throw new TypeError("dependencyIdentifiers must be an array of strings.");
+    NobleJSModule.prototype.provide = function (dependencies, onAllProvided) {
+        if (!Array.isArray(dependencies)) {
+            throw new TypeError("dependencies must be an array.");
         }
         if (typeof onAllProvided !== "function") {
             throw new TypeError("onAllProvided must be a function.");
         }
-        if (dependencyIdentifiers.some(function (arrayEntry) { return typeof arrayEntry !== "string"; })) {
-            throw new TypeError("dependencyIdentifiers must be an array of strings.");
+        if (!isValidDependencyArray(dependencies)) {
+            throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
         }
         if (!(this instanceof NobleJSModule)) {
             throw new Error('module.provide called with incorrect "this" pointer.');
         }
 
-        provideImpl(this.id, dependencyIdentifiers, onAllProvided);
+        provideImpl(this.id, dependencies, onAllProvided);
     };
 
     NobleJSModule.prototype.eventually = function (functionToCallEventually) {

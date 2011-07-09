@@ -28,14 +28,16 @@ moduleTest("declare: validates its arguments", function (require, exports, modul
     // TODO: test for validation that parameters are always either strings or objects that contain only string properties?
 });
 
-test("declare: using labeled dependency objects", function () {
-    module.declare([{ mathLabel: "demos/math" }], function (require, exports, module) {
+asyncTest("declare: using labeled dependency objects", function () {
+    window.module.declare([{ mathLabel: "demos/math"}], function (require, exports, module) {
         strictEqual(require.id("mathLabel"), "demos/math", "The label was translated into the correct ID when using require.id");
         strictEqual(require.uri("mathLabel"), "demos/math.js", "The label was translated into the correct URI when using require.uri");
 
         var math = require("mathLabel");
         strictEqual(typeof math, "object", 'demos/math module, labeled as "mathLabel," has been provided');
         strictEqual(typeof math.add, "function", 'demos/math module, labeled as "mathLabel," has exported its add function');
+
+        start();
     });
 });
 
@@ -111,12 +113,7 @@ asyncModuleTest("load: a module using its own module.load, passing a relative mo
 });
 
 moduleTest("provide: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(module.provide.bind(module), { dependencyIdentifiers: Array, onAllProvided: Function });
-    assertArrayArgumentValidated(
-                function (dependencyIdentifiers) { return module.provide(dependencyIdentifiers, function () { }); },
-                String,
-                "dependencyIdentifiers"
-            );
+    assertArgumentsValidated(module.provide.bind(module), { dependencies: Array, onAllProvided: Function });
 });
 
 moduleTest('provide: validates "this" pointer', function (require, exports, module) {
