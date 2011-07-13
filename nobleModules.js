@@ -4,11 +4,12 @@
     var PARENT_DIRECTORY = "..";
     var MODULE_FILE_EXTENSION = ".js";
 
-    var MAIN_MODULE_ID = "";				// Browser environment: main module's identifier should be the empty string.
-    var DEFAULT_MAIN_MODULE_DIR = "";		// Browser environment: paths are relative to main module path, i.e. path of HTML file that does initial module.declare.
+    var MAIN_MODULE_ID = "";            // Browser environment: main module's identifier should be the empty string.
+    var DEFAULT_MAIN_MODULE_DIR = "";   // Browser environment: paths are relative to main module path, i.e. path of HTML file that does initial module.declare.
+    var DEFAULT_IS_IN_DEBUG_MODE = false;
 
-    // Set via require("nobleModules/debug").enableDebug(). Reset to false by require("nobleModules/debug").reset().
-    var isInDebugMode = false;
+    // Set via require("nobleModules/debug").enableDebug(). Reset to default by require("nobleModules/debug").reset().
+    var isInDebugMode = DEFAULT_IS_IN_DEBUG_MODE;
 
     // Set in reset. Defaults to DEFAULT_MAIN_MODULE_DIR, but can be changed by
     // require("nobleModules/debug").reset(newMainModuleDir).
@@ -35,111 +36,142 @@
     ///#region Helper functions and objects
     var warn = (console && console.warn) ? function (warning) { console.warn(warning); } : function () { };
 
-    function getDirectoryPortion(moduleId) {
-        if (moduleId === MAIN_MODULE_ID) {
-            return mainModuleDir;
-        }
-
-        var directoryPortion = moduleId.split(TERM_DELIMITER).slice(0, -1).join(TERM_DELIMITER);
-
-        // If empty, return the current directory string, so as to distinguish from empty string.
-        // Empty string would denote relative to the HTML file that we are inserting <script /> tags into.
-        return directoryPortion || CURRENT_DIRECTORY;
-    }
-
-    function getIdFromPath(path) {
-        var idFragments = [];
-        path.split(TERM_DELIMITER).forEach(function (pathFragment) {
-            if (pathFragment === CURRENT_DIRECTORY || pathFragment.length === 0) {
-                return;
-            }
-
-            if (pathFragment === PARENT_DIRECTORY) {
-                if (idFragments.length === 0) {
-                    throw new Error("Invalid module path: " + path);
-                }
-                idFragments.pop();
-                return;
-            }
-
-            idFragments.push(pathFragment);
-        });
-
-        var id = idFragments.join(TERM_DELIMITER);
-        if (id.length === 0) {
-            throw new Error("Could not create an ID from the path passed in: " + path);
-        }
-        return id;
-    }
-
-    function getIdFromIdentifier(relativeModuleDir, moduleIdentifier) {
-        if (moduleIdentifier === MAIN_MODULE_ID) {
-            return MAIN_MODULE_ID;
-        }
-
-        var path;
-        if (moduleIdentifier.indexOf(CURRENT_DIRECTORY + TERM_DELIMITER) === 0 || moduleIdentifier.indexOf(PARENT_DIRECTORY + TERM_DELIMITER) === 0) {
-            path = relativeModuleDir + TERM_DELIMITER + moduleIdentifier;
-        } else {
-            path = mainModuleDir + TERM_DELIMITER + moduleIdentifier;
-        }
-        return getIdFromPath(path);
-    }
-
     function getUriFromId(id) {
         return id + MODULE_FILE_EXTENSION;
     }
 
-    function getIdsFromLabelsMap(moduleDir, dependencies) {
-        var map = {};
-        dependencies
-            .filter(function (dependency) { return typeof dependency === "object"; })
-            .forEach(function (labeledDependencyObject) {
-                Object.keys(labeledDependencyObject).forEach(function (label) {
-                    var identifier = labeledDependencyObject[label];
-                    map[label] = getIdFromIdentifier(moduleDir, identifier);
-                });
+    var dependencyTracker = (function () {
+        var arraysById;
+        var extraModuleEnvironmentDependencies;
+
+        function getIdFromPath(path) {
+            var idFragments = [];
+            path.split(TERM_DELIMITER).forEach(function (pathFragment) {
+                if (pathFragment === CURRENT_DIRECTORY || pathFragment.length === 0) {
+                    return;
+                }
+
+                if (pathFragment === PARENT_DIRECTORY) {
+                    if (idFragments.length === 0) {
+                        throw new Error("Invalid module path: " + path);
+                    }
+                    idFragments.pop();
+                    return;
+                }
+
+                idFragments.push(pathFragment);
             });
 
-        return map;
-    }
-
-    function getIdsFromDependencies(dependencies, startingModuleId) {
-        var startingModuleDir = getDirectoryPortion(startingModuleId);
-
-        var ids = [];
-        function pushId(identifier) {
-            ids.push(getIdFromIdentifier(startingModuleDir, identifier));
+            var id = idFragments.join(TERM_DELIMITER);
+            if (id.length === 0) {
+                throw new Error("Could not create an ID from the path passed in: " + path);
+            }
+            return id;
         }
 
-        dependencies.forEach(function (dependency) {
-            if (typeof dependency === "string") {
-                pushId(dependency);
-            } else {
-                Object.keys(dependency)
-                    .map(function (label) { return dependency[label]; })
-                    .forEach(pushId);
+        function getDirectoryPortion(moduleId) {
+            if (moduleId === MAIN_MODULE_ID || moduleId === undefined) {
+                return mainModuleDir;
             }
-        });
 
-        return ids;
-    }
+            var directoryPortion = moduleId.split(TERM_DELIMITER).slice(0, -1).join(TERM_DELIMITER);
 
-    function isValidDependencyIdentifier(identifier) {
-        return typeof identifier === "string";
-    }
+            // If empty, return the current directory string, so as to distinguish from empty string.
+            // Empty string would denote relative to the HTML file that we are inserting <script /> tags into.
+            return directoryPortion || CURRENT_DIRECTORY;
+        }
 
-    function isValidLabeledDependencyObject(object) {
-        return typeof object === "object" && Object.keys(object).every(isValidDependencyIdentifier);
-    }
+        function getIdFromStringIdentifier(relativeModuleDir, moduleIdentifier) {
+            if (moduleIdentifier === MAIN_MODULE_ID) {
+                return MAIN_MODULE_ID;
+            }
 
-    function isValidDependencyArrayEntry(arrayEntry) {
-        return isValidDependencyIdentifier(arrayEntry) || isValidLabeledDependencyObject(arrayEntry);
-    }
+            var path;
+            if (moduleIdentifier.indexOf(CURRENT_DIRECTORY + TERM_DELIMITER) === 0 || moduleIdentifier.indexOf(PARENT_DIRECTORY + TERM_DELIMITER) === 0) {
+                path = relativeModuleDir + TERM_DELIMITER + moduleIdentifier;
+            } else {
+                path = mainModuleDir + TERM_DELIMITER + moduleIdentifier;
+            }
+            return getIdFromPath(path);
+        }
 
-    function isValidDependencyArray(dependencies) {
-        return dependencies.every(isValidDependencyArrayEntry);
-    }
+        function makeLabelsToIdsMap(moduleDir, dependencies) {
+            var map = {};
+
+            dependencies
+                .filter(function (dependency) { return typeof dependency === "object"; })
+                .forEach(function (labeledDependencyObject) {
+                    Object.keys(labeledDependencyObject).forEach(function (label) {
+                        var identifier = labeledDependencyObject[label];
+                        map[label] = getIdFromStringIdentifier(moduleDir, identifier);
+                    });
+                });
+
+            return map;
+        }
+
+        function isValidDependencyIdentifier(identifier) {
+            return typeof identifier === "string";
+        }
+
+        function isValidLabeledDependencyObject(object) {
+            return typeof object === "object" && Object.keys(object).every(isValidDependencyIdentifier);
+        }
+
+        function isValidDependencyArrayEntry(arrayEntry) {
+            return isValidDependencyIdentifier(arrayEntry) || isValidLabeledDependencyObject(arrayEntry);
+        }
+
+        return {
+            reset: function () {
+                arraysById = {};
+                arraysById[MAIN_MODULE_ID] = [];
+                extraModuleEnvironmentDependencies = [];
+            },
+            updateArray: function (id, dependencies) {
+                if (id === undefined) {
+                    Array.prototype.push.apply(extraModuleEnvironmentDependencies, dependencies);
+                }
+                if (arraysById.hasOwnProperty(id)) {
+                    Array.prototype.push.apply(arraysById[id], dependencies);
+                } else {
+                    arraysById[id] = dependencies;
+                }
+            },
+            getDependenciesCopyFor: function (id) {
+                return id === undefined ? extraModuleEnvironmentDependencies.slice() : arraysById[id].slice();
+            },
+            isValidArray: function (dependencies) {
+                return dependencies.every(isValidDependencyArrayEntry);
+            },
+            transformToIdArray: function (dependencies, baseModuleId) {
+                var moduleDir = getDirectoryPortion(baseModuleId);
+
+                var ids = [];
+                function pushId(identifier) {
+                    ids.push(getIdFromStringIdentifier(moduleDir, identifier));
+                }
+
+                dependencies.forEach(function (dependency) {
+                    if (typeof dependency === "string") {
+                        pushId(dependency);
+                    } else {
+                        Object.keys(dependency)
+                            .map(function (label) { return dependency[label]; })
+                            .forEach(pushId);
+                    }
+                });
+
+                return ids;
+            },
+            getIdFromIdentifier: function (identifier, baseModuleId) {
+                var moduleDir = getDirectoryPortion(baseModuleId);
+
+                var labelsToIds = makeLabelsToIdsMap(moduleDir, arraysById[baseModuleId]);
+                return labelsToIds.hasOwnProperty(identifier) ? labelsToIds[identifier] : getIdFromStringIdentifier(moduleDir, identifier);
+            }
+        };
+    } ());
 
     var memoizeListeners = (function () {
         var listeners;
@@ -163,7 +195,7 @@
                 }
             }
         };
-    }());
+    } ());
 
     var scriptLoader = (function () {
         // Garbage object map (i.e. we only ever use loadingTracker.hasOwnProperty(uri), never loadingTracker[uri])
@@ -220,10 +252,10 @@
                     scriptTagEls.push(el);
                 } else {
                     throw new Error("Tried to load script at " + uri + "; however, the script was already in the DOM.");
-                } 
+                }
             }
         }
-    }());
+    } ());
     //#endregion
 
     //#region require namespace implementation
@@ -235,24 +267,14 @@
         pendingDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };
     }
 
-    function requireFactory(startingModuleId, dependencies) {
-        var moduleDir = getDirectoryPortion(startingModuleId);
-        var idsFromLabels = getIdsFromLabelsMap(moduleDir, dependencies);
-        function getId(identifier) {
-            return idsFromLabels.hasOwnProperty(identifier) ? idsFromLabels[identifier] : getIdFromIdentifier(moduleDir, identifier);
-        }
-
-        var dependencyIdsForDebugWarning = null;
-        if (isInDebugMode) {
-            dependencyIdsForDebugWarning = getIdsFromDependencies(dependencies, startingModuleId);
-        }
+    function requireFactory(originatingId, dependencies) {
 
         var require = function (moduleIdentifier) {
             if (typeof moduleIdentifier !== "string") {
                 throw new TypeError("moduleIdentifier must be a string.");
             }
 
-            var id = getId(moduleIdentifier);
+            var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, originatingId);
 
             if (!requireMemo.hasOwnProperty(id) && pendingDeclarations.hasOwnProperty(id)) {
                 initializeModule(id);
@@ -262,8 +284,12 @@
                 throw new Error('Module "' + id + '" has not been provided and is not available.');
             }
 
-            if (dependencyIdsForDebugWarning && dependencyIdsForDebugWarning.indexOf(id) === -1) {
-                warn('The module with ID "' + id + '" was not specified in the dependency array for the "' + startingModuleId + '" module.');
+            if (isInDebugMode) {
+                var dependencyIdsForDebugWarning = dependencyTracker.transformToIdArray(dependencyTracker.getDependenciesCopyFor(originatingId), originatingId);
+
+                if (dependencyIdsForDebugWarning.indexOf(id) === -1) {
+                    warn('The module with ID "' + id + '" was not specified in the dependency array for the "' + originatingId + '" module.');
+                }
             }
 
             return requireMemo[id];
@@ -274,7 +300,7 @@
                 throw new TypeError("moduleIdentifier must be a string");
             }
 
-            return getId(moduleIdentifier);
+            return dependencyTracker.getIdFromIdentifier(moduleIdentifier, originatingId);
         };
 
         require.uri = function (moduleIdentifier) {
@@ -282,7 +308,7 @@
                 throw new TypeError("moduleIdentifier must be a string");
             }
 
-            return getUriFromId(getId(moduleIdentifier));
+            return getUriFromId(dependencyTracker.getIdFromIdentifier(moduleIdentifier, originatingId));
         };
 
         require.memoize = function (id, dependencies, moduleFactory) {
@@ -295,7 +321,7 @@
             if (typeof moduleFactory !== "function") {
                 throw new TypeError("moduleFactory must be a function for " + id + ".");
             }
-            if (!isValidDependencyArray(dependencies)) {
+            if (!dependencyTracker.isValidArray(dependencies)) {
                 throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
             }
 
@@ -314,7 +340,7 @@
             return isMemoizedImpl(id);
         };
 
-        require.displayName = 'require <"' + moduleDir + '">';
+        require.displayName = 'require <"' + originatingId + '">';
         require.id.displayName = "require.id";
         require.uri.displayName = "require.uri";
         require.memoize.displayName = "require.memoize";
@@ -326,20 +352,20 @@
     //#endregion
 
     //#region Module namespace implementation
-    function provideDependenciesThenMemoize(id, dependencies, moduleFactory, onMemoized) {		
+    function provideDependenciesThenMemoize(id, dependencies, moduleFactory, onMemoized) {
         function memo() {
             if (!isMemoizedImpl(id)) {
                 memoizeImpl(id, dependencies, moduleFactory);
             } else {
                 memoizeListeners.trigger(id);
-            }			
-        }		
-        
+            }
+        }
+
         provideImpl(id, dependencies, function () {
             memo();
             onMemoized();
         });
-        
+
         memo();
     }
 
@@ -355,13 +381,11 @@
             requireMemo[id] = pendingDeclarations[id].exports;
             return;
         }
-        
-        var moduleDirectory = getDirectoryPortion(id);
 
         // Grab the moduleFactory and dependencies from pendingDeclarations; this is where we use them up,
         // and we want pendingDeclarations[id] dead ASAP (i.e. before handing off control to user code by calling moduleFactory).
         var moduleFactory = pendingDeclarations[id].moduleFactory;
-        var dependencies = pendingDeclarations[id].dependencies;		
+        var dependencies = pendingDeclarations[id].dependencies;
 
         // Create a context aware require, a blank exports, and get the appropriate previously-memoized module object, to pass in to moduleFactory.
         var require = requireFactory(id, dependencies);
@@ -374,7 +398,7 @@
         // But if those exports are alternate exports, we won't be able to guarantee that we hand out the same exports reference to everyone,
         // so we need to throw an error.
         if (requireMemo.hasOwnProperty(id) && requireMemo[id] !== exports) {
-            throw new Error('Module "' + id +  '" contains circular dependencies that return alternate exports instead of using the exports object.');
+            throw new Error('Module "' + id + '" contains circular dependencies that return alternate exports instead of using the exports object.');
         }
 
         // If the module does not return anything, use our exports object; if it does, its exported API is the factory's returned result.
@@ -392,8 +416,7 @@
     }
 
     function loadImpl(thisId, moduleIdentifier, onModuleLoaded) {
-        var startingDirectory = getDirectoryPortion(thisId);
-        var id = getIdFromIdentifier(startingDirectory, moduleIdentifier);
+        var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, thisId);
         var uri = getUriFromId(id);
 
         if (scriptLoader.isLoading(uri)) {
@@ -429,13 +452,15 @@
     }
 
     function provideImpl(thisId, dependencies, onAllProvided) {
+        // Update our dependency array so that calls to the corresponding require know about any new labels this provide call introduced.
+        dependencyTracker.updateArray(thisId, dependencies);
+
         if (dependencies.length === 0) {
             onAllProvided();
             return;
         }
 
-
-        var dependencyIds = getIdsFromDependencies(dependencies, thisId);
+        var dependencyIds = dependencyTracker.transformToIdArray(dependencies, thisId);
 
         var providedSoFar = [];
         function onDependencyProvided(id) {
@@ -477,12 +502,12 @@
                 enumerable: true
             },
             dependencies: {
-                get: function () { return dependencies.slice(); },	// Don't allow anyone to mess with our dependency array; just give them a copy.
+                get: function () { return dependencyTracker.getDependenciesCopyFor(id); },
                 enumerable: true
             }
         });
     }
-    
+
     // Be careful not to assign NobleJSModule.prototype directly because of the following phenomenon:
     //     function F() { }
     //     F.prototype = {};
@@ -532,7 +557,7 @@
         if (typeof onAllProvided !== "function") {
             throw new TypeError("onAllProvided must be a function.");
         }
-        if (!isValidDependencyArray(dependencies)) {
+        if (!dependencyTracker.isValidArray(dependencies)) {
             throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
         }
         if (!(this instanceof NobleJSModule)) {
@@ -577,12 +602,13 @@
         }
 
         // Reset shared state.
-        isInDebugMode = false;
+        isInDebugMode = DEFAULT_IS_IN_DEBUG_MODE;
         requireMemo = {};
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;
         memoizeListeners.reset();
         scriptLoader.reset();
+        dependencyTracker.reset();
 
         // Reset the main module; now, the next call to module.declare will declare a new main module.
         NobleJSModule.prototype.main = null;
@@ -592,7 +618,7 @@
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
         globalRequire = requireFactory(MAIN_MODULE_ID, []);
-        globalModule = new NobleJSModule(MAIN_MODULE_ID, []);
+        globalModule = new NobleJSModule(undefined, []);
     }
 
     function initialize() {
