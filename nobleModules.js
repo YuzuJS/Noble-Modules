@@ -6,10 +6,12 @@
 
     var MAIN_MODULE_ID = "";				// Browser environment: main module's identifier should be the empty string.
     var DEFAULT_MAIN_MODULE_DIR = "";		// Browser environment: paths are relative to main module path, i.e. path of HTML file that does initial module.declare.
-    var DEFAULT_PREVENT_CACHING = false;	// See scriptLoader below for an explanation.
+
+    // Set via require("nobleModules/debug").enableDebug(). Reset to false by require("nobleModules/debug").reset().
+    var isInDebugMode = false;
 
     // Set in reset. Defaults to DEFAULT_MAIN_MODULE_DIR, but can be changed by
-    // require("noblejs/moduleLoader/debug").reset(preventCaching, newMainModuleDir).
+    // require("nobleModules/debug").reset(newMainModuleDir).
     var mainModuleDir;
 
     // An id => object map giving each module's exports. Filled lazily upon first require of a given module.
@@ -31,6 +33,8 @@
     var globalModule;
 
     ///#region Helper functions and objects
+    var warn = (console && console.warn) ? function (warning) { console.warn(warning); } : function () { };
+
     function getDirectoryPortion(moduleId) {
         if (moduleId === MAIN_MODULE_ID) {
             return mainModuleDir;
@@ -169,13 +173,8 @@
         // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, we can remove them.
         var scriptTagEls = [];
 
-        // Whether or not to append random query strings to script URIs in order to prevent caching. Set in reset.
-        // Defaults to DEFAULT_PREVENT_CACHING, but can be changed by require("nobleModules/debug").reset(preventCaching).
-        var preventCaching;
-
         return {
             reset: function () {
-                preventCaching = DEFAULT_PREVENT_CACHING;
                 loadingTracker = {};
 
                 // Remove any <script /> elements we inserted in a previous life.
@@ -183,9 +182,6 @@
                     document.head.removeChild(el);
                 });
                 scriptTagEls.length = 0;
-            },
-            enableDebug: function () {
-                preventCaching = true;
             },
             isLoading: function (uri) {
                 return loadingTracker.hasOwnProperty(uri);
@@ -216,9 +212,9 @@
                     el.addEventListener("load", onScriptLoad, false);
                     el.addEventListener("error", onScriptError, false);
 
-                    // If we want to prevent caching, append a timestamp to the URI. Separate it with underscores so that when
+                    // If in debug mode, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
                     // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
-                    el.src = preventCaching ? uri + "?___________________________________" + Date.now() : uri;
+                    el.src = isInDebugMode ? uri + "?___________________________________" + Date.now() : uri;
 
                     document.head.appendChild(el);
                     scriptTagEls.push(el);
@@ -239,12 +235,16 @@
         pendingDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };
     }
 
-    function requireFactory(moduleDir, dependencies) {
-        // TODO: consider creating a prototype object to inherit from so as to not create new instances of e.g. require.id.
-
+    function requireFactory(startingModuleId, dependencies) {
+        var moduleDir = getDirectoryPortion(startingModuleId);
         var idsFromLabels = getIdsFromLabelsMap(moduleDir, dependencies);
         function getId(identifier) {
             return idsFromLabels.hasOwnProperty(identifier) ? idsFromLabels[identifier] : getIdFromIdentifier(moduleDir, identifier);
+        }
+
+        var dependencyIdsForDebugWarning = null;
+        if (isInDebugMode) {
+            dependencyIdsForDebugWarning = getIdsFromDependencies(dependencies, startingModuleId);
         }
 
         var require = function (moduleIdentifier) {
@@ -260,6 +260,10 @@
 
             if (!requireMemo.hasOwnProperty(id)) {
                 throw new Error('Module "' + id + '" has not been provided and is not available.');
+            }
+
+            if (dependencyIdsForDebugWarning && dependencyIdsForDebugWarning.indexOf(id) === -1) {
+                warn('The module with ID "' + id + '" was not specified in the dependency array for the "' + startingModuleId + '" module.');
             }
 
             return requireMemo[id];
@@ -360,7 +364,7 @@
         var dependencies = pendingDeclarations[id].dependencies;		
 
         // Create a context aware require, a blank exports, and get the appropriate previously-memoized module object, to pass in to moduleFactory.
-        var require = requireFactory(moduleDirectory, dependencies);
+        var require = requireFactory(id, dependencies);
         var module = new NobleJSModule(id, dependencies);
         var exports = pendingDeclarations[id].exports = {};
 
@@ -555,6 +559,17 @@
     NobleJSModule.prototype.eventually.displayName = "module.eventually";
     //#endregion
 
+    // A special debugging module with access to our internal state.
+    var debugModule = Object.freeze({
+        enableDebug: function () {
+            isInDebugMode = true;
+        },
+        reset: reset,
+        listModules: function () {
+            console.dir(Object.keys(requireMemo).concat(Object.keys(pendingDeclarations)));
+        }
+    });
+
     function reset(injectedMainModuleDir) {
         mainModuleDir = injectedMainModuleDir !== undefined ? injectedMainModuleDir : DEFAULT_MAIN_MODULE_DIR;
         if (typeof mainModuleDir !== "string") {
@@ -562,6 +577,7 @@
         }
 
         // Reset shared state.
+        isInDebugMode = false;
         requireMemo = {};
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;
@@ -571,17 +587,11 @@
         // Reset the main module; now, the next call to module.declare will declare a new main module.
         NobleJSModule.prototype.main = null;
 
-        // Provide a special debugging module with access to our internal state.
-        requireMemo["nobleModules/debug"] = {
-            enableDebug: scriptLoader.enableDebug,
-            reset: reset,
-            listModules: function () {
-                console.dir(Object.keys(requireMemo).concat(Object.keys(pendingDeclarations)));
-            }
-        };
+        // Provide the debug module.
+        requireMemo["nobleModules/debug"] = debugModule;
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
-        globalRequire = requireFactory(mainModuleDir, []);
+        globalRequire = requireFactory(MAIN_MODULE_ID, []);
         globalModule = new NobleJSModule(MAIN_MODULE_ID, []);
     }
 
