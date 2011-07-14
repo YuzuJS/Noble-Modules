@@ -265,10 +265,12 @@
 
     function memoizeImpl(id, dependencies, moduleFactory) {
         pendingDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };
+
+        // Update our dependency array so that calls to the corresponding require know about any new labels this memoize call introduced.
+        dependencyTracker.updateArray(id, dependencies);
     }
 
     function requireFactory(originatingId, dependencies) {
-
         var require = function (moduleIdentifier) {
             if (typeof moduleIdentifier !== "string") {
                 throw new TypeError("moduleIdentifier must be a string.");
@@ -453,6 +455,8 @@
 
     function provideImpl(thisId, dependencies, onAllProvided) {
         // Update our dependency array so that calls to the corresponding require know about any new labels this provide call introduced.
+        // We can't wait for memoizeImpl to do this for us, because that will only happen asynchronously, after script load, whereas if the user
+        // calls into the system right after this, he might hit something that depends on the dependency tracker being updated for this module.
         dependencyTracker.updateArray(thisId, dependencies);
 
         if (dependencies.length === 0) {

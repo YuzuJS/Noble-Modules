@@ -40,6 +40,25 @@ moduleTest("memoize: cannot memoize a module that is already memoized", function
     }, Error, "Threw an error when trying to memoize twice.");
 });
 
+test("memoize: basic functionality", function () {
+    window.require.memoize("extraModuleEnvironment/memoized", [], function (require, exports, module) { exports.hi = "hello" });
+
+    var memoized = window.require("extraModuleEnvironment/memoized");
+    deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
+});
+
+moduleTest("memoize: a module that depends on a memoized module", function (require, exports, module) {
+    require.memoize("extraModuleEnvironment/dependent", ["extraModuleEnvironment/dependency"], function (require, exports, module) {
+        var dependency = require("extraModuleEnvironment/dependency");
+
+        exports.greeting = dependency.hi;
+    });
+    require.memoize("extraModuleEnvironment/dependency", [], function (require, exports, module) { exports.hi = "hello"; });
+
+    var dependent = require("extraModuleEnvironment/dependent");
+    deepEqual(dependent, { greeting: "hello" }, "The dependent module was memoized");
+});
+
 moduleTest("isMemoized: validates its arguments", function (require, exports, module) {
     assertArgumentValidated(require.isMemoized.bind(require), String, "id");
 });
