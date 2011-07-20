@@ -285,7 +285,7 @@
                 throw new Error('Module "' + id + '" has not been provided and is not available.');
             }
 
-            if (isInDebugMode && id !== MAIN_MODULE_ID) {
+            if (isInDebugMode && originatingId !== EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
                 var dependencyIdsForDebugWarning = dependencyTracker.transformToIdArray(dependencyTracker.getDependenciesCopyFor(originatingId), originatingId);
 
                 if (dependencyIdsForDebugWarning.indexOf(id) === -1) {
