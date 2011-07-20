@@ -128,15 +128,12 @@
                 arraysById[MAIN_MODULE_ID] = [];
                 extraModuleEnvironmentDependencies = [];
             },
-            updateArray: function (id, dependencies) {
+            setDependenciesFor: function (id, dependencies) {
                 if (id === undefined) {
                     Array.prototype.push.apply(extraModuleEnvironmentDependencies, dependencies);
                 }
-                if (arraysById.hasOwnProperty(id)) {
-                    Array.prototype.push.apply(arraysById[id], dependencies);
-                } else {
-                    arraysById[id] = dependencies;
-                }
+
+                arraysById[id] = dependencies;
             },
             getDependenciesCopyFor: function (id) {
                 return id === undefined ? extraModuleEnvironmentDependencies.slice() : arraysById[id].slice();
@@ -267,7 +264,7 @@
         pendingDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };
 
         // Update our dependency array so that calls to the corresponding require know about any new labels this memoize call introduced.
-        dependencyTracker.updateArray(id, dependencies);
+        dependencyTracker.setDependenciesFor(id, dependencies);
     }
 
     function requireFactory(originatingId, dependencies) {
@@ -358,7 +355,7 @@
         // Make the dependency tracker aware that this module has this dependency array.
         // We can't wait for memoizeImpl to do this for us, because that will only happen asynchronously, after script load, whereas if the user
         // calls into the system right after this, he might hit something that depends on the dependency tracker being updated for this module.
-        dependencyTracker.updateArray(id, dependencies);
+        dependencyTracker.setDependenciesFor(id, dependencies);
 
         function memo() {
             if (!isMemoizedImpl(id)) {
