@@ -355,6 +355,11 @@
 
     //#region Module namespace implementation
     function provideDependenciesThenMemoize(id, dependencies, moduleFactory, onMemoized) {
+        // Make the dependency tracker aware that this module has this dependency array.
+        // We can't wait for memoizeImpl to do this for us, because that will only happen asynchronously, after script load, whereas if the user
+        // calls into the system right after this, he might hit something that depends on the dependency tracker being updated for this module.
+        dependencyTracker.updateArray(id, dependencies);
+
         function memo() {
             if (!isMemoizedImpl(id)) {
                 memoizeImpl(id, dependencies, moduleFactory);
@@ -454,11 +459,6 @@
     }
 
     function provideImpl(thisId, dependencies, onAllProvided) {
-        // Update our dependency array so that calls to the corresponding require know about any new labels this provide call introduced.
-        // We can't wait for memoizeImpl to do this for us, because that will only happen asynchronously, after script load, whereas if the user
-        // calls into the system right after this, he might hit something that depends on the dependency tracker being updated for this module.
-        dependencyTracker.updateArray(thisId, dependencies);
-
         if (dependencies.length === 0) {
             onAllProvided();
             return;
