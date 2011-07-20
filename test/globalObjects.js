@@ -37,6 +37,23 @@ asyncTest("module.main: with dependencies", function () {
         var math = require("demos/math");
         strictEqual(typeof math.add, "function", "Global main module imported the demos/math module's add function");
 
+        deepEqual(module.dependencies, ["demos/math"], "The dependencies array for the main module contains the demos/math module");
+
         start();
     });
+});
+
+test("module.id: is undefined", function () {
+    strictEqual(window.module.id, undefined, "The id property is undefined for the global module object");
+});
+
+// See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
+test("module.dependencies: is an empty array", function () {
+    deepEqual(window.module.dependencies, [], "The dependencies property is an empty array for the global module object");
+});
+
+test("module.dependencies: is not modified by declaration of the main module", function () {
+    window.module.declare(["demos/math"], function () { });
+
+    deepEqual(window.module.dependencies, [], "The dependencies property is still an empty array for the global module object");
 });

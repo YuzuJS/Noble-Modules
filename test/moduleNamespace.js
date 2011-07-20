@@ -152,6 +152,26 @@ asyncModuleTest("provide: with a nonextant module identifier", function (require
     });
 });
 
+// See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
+asyncModuleTest("provide: does not modify module.dependencies", function (require, exports, module) {
+    module.provide(["demos/restaurants"], function onModulesProvided() {
+        deepEqual(module.dependencies, [], "The dependencies array is still empty.");
+
+        start();
+    });
+});
+
+// See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
+asyncModuleTest("provide: does not make labels available to require", function (require, exports, module) {
+    module.provide([{ restaurants: "demos/restaurants" }], function onModulesProvided() {
+        raises(function () {
+            require("restaurants");
+        }, "Trying to require using the label throws an error");
+
+        start();
+    });
+});
+
 moduleTest("eventually: validates its arguments", function (require, exports, module) {
     assertArgumentValidated(module.eventually.bind(module), Function, "functionToCallEventually");
 });
