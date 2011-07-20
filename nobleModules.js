@@ -512,14 +512,6 @@
         });
     }
 
-    // Be careful not to assign NobleJSModule.prototype directly because of the following phenomenon:
-    //     function F() { }
-    //     F.prototype = {};
-    //     var f = new F();
-    //     f.constructor.prototype.main = "something";
-    //     for (var i in { a: 1, b: 2 }) { console.log(i); }
-    // This outputs "a", "b", "main"!!
-
     NobleJSModule.prototype.declare = function (dependencies, moduleFactory) {
         if (moduleFactory === undefined) {
             moduleFactory = dependencies;
