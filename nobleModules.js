@@ -627,8 +627,8 @@
         // change their values in reset(), since a non-configurable data descriptor cannot be re-defined.
 
         // Note that we explicitly specify false for configurable, to account for the case where e.g. a previous script
-        // did global.module = {}. Then the below code would be a *re*definition of global.module, and would inherit the implied
-        // configurable: true from the previous script's definition of global.module.
+        // did global.module = {}. Then the below code would be a *re*definition of global.module, and if we didn't specify,
+        // we would inherit the implied configurable: true from the previous script's definition of global.module.
         Object.defineProperties(global, {
             require: {
                 get: function () { return globalRequire; },
