@@ -7,7 +7,7 @@ test("Debug module is provided to global require", function () {
 	strictEqual(typeof debugModule, "object", "exports are an object");
 });
 
-asyncTest("Outside of debug mode, scripts are cached", function () {
+asyncTest("By default, scripts are cached", function () {
 	var debugModule = window.require("nobleModules/debug");
 
 	debugModule.reset();
@@ -21,11 +21,11 @@ asyncTest("Outside of debug mode, scripts are cached", function () {
 	});
 });
 
-asyncTest("In debug mode, caching is prevented", function () {
+asyncTest("If requested, caching is prevented", function () {
 	var debugModule = window.require("nobleModules/debug");
 
 	debugModule.reset();
-	debugModule.enableDebug();
+	debugModule.setDebugOptions({ disableCaching: true });
 
 	window.module.declare(["demos/math"], function (require, exports, module) {
 		var mathScriptEl = document.head.querySelector("script[src^='demos/math.js']");
@@ -38,11 +38,11 @@ asyncTest("In debug mode, caching is prevented", function () {
 	});
 });
 
-asyncTest("In debug mode, calling require for an ID not specified in the dependency array gives a warning in the console", function () {
+asyncTest("If requested, calling require for an ID not specified in the dependency array gives a warning in the console", function () {
 	var debugModule = window.require("nobleModules/debug");
 
 	debugModule.reset();
-	debugModule.enableDebug();
+	debugModule.setDebugOptions({ warnAboutUndeclaredDependencies: true });
 
 	var recordedWarning = null;
 	console.warn = function (warning) {

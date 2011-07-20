@@ -9,10 +9,11 @@
 
     var MAIN_MODULE_ID = "";            // Browser environment: main module's identifier should be the empty string.
     var DEFAULT_MAIN_MODULE_DIR = "";   // Browser environment: paths are relative to main module path, i.e. path of HTML file that does initial module.declare.
-    var DEFAULT_IS_IN_DEBUG_MODE = false;
 
-    // Set via require("nobleModules/debug").enableDebug(). Reset to default by require("nobleModules/debug").reset().
-    var isInDebugMode = DEFAULT_IS_IN_DEBUG_MODE;
+    var DEFAULT_DEBUG_OPTIONS = { disableCaching: false, warnAboutUndeclaredDependencies: false };
+
+    // Set via require("nobleModules/debug").setDebugOptions(newOptions). Reset to default by require("nobleModules/debug").reset().
+    var debugOptions;
 
     // Set in reset. Defaults to DEFAULT_MAIN_MODULE_DIR, but can be changed by
     // require("nobleModules/debug").reset(newMainModuleDir).
@@ -245,7 +246,7 @@
 
                     // If in debug mode, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
                     // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
-                    el.src = isInDebugMode ? uri + "?___________________________________" + Date.now() : uri;
+                    el.src = debugOptions.disableCaching ? uri + "?___________________________________" + Date.now() : uri;
 
                     document.head.appendChild(el);
                     scriptTagEls.push(el);
@@ -285,7 +286,7 @@
                 throw new Error('Module "' + id + '" has not been provided and is not available.');
             }
 
-            if (isInDebugMode && originatingId !== EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
+            if (debugOptions.warnAboutUndeclaredDependencies && originatingId !== EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
                 var dependencyIdsForDebugWarning = dependencyTracker.transformToIdArray(dependencyTracker.getDependenciesCopyFor(originatingId), originatingId);
 
                 if (dependencyIdsForDebugWarning.indexOf(id) === -1) {
@@ -581,8 +582,13 @@
 
     // A special debugging module with access to our internal state.
     var debugModule = Object.freeze({
-        enableDebug: function () {
-            isInDebugMode = true;
+        setDebugOptions: function (options) {
+            if (options.enableCaching === !!options.enableCaching) {
+                debugOptions.enableCaching = options.enableCaching;
+            }
+            if (options.warnAboutUndeclaredDependencies === !!options.warnAboutUndeclaredDependencies) {
+                debugOptions.warnAboutUndeclaredDependencies = options.warnAboutUndeclaredDependencies;
+            }
         },
         reset: reset,
         listModules: function () {
@@ -597,7 +603,7 @@
         }
 
         // Reset shared state.
-        isInDebugMode = DEFAULT_IS_IN_DEBUG_MODE;
+        debugOptions = DEFAULT_DEBUG_OPTIONS;
         requireMemo = {};
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;

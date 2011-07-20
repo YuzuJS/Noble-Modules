@@ -29,7 +29,7 @@
             name,
             {
                 setup: function () {
-                    global.require("nobleModules/debug").enableDebug();
+                    global.require("nobleModules/debug").setDebugOptions({ disableCaching: true });
                 },
                 teardown: function () {
                     global.require("nobleModules/debug").reset();
