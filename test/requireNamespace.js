@@ -48,14 +48,14 @@ test("memoize: basic functionality", function () {
 });
 
 moduleTest("memoize: a module that depends on a memoized module", function (require, exports, module) {
-    require.memoize("extraModuleEnvironment/dependent", ["extraModuleEnvironment/dependency"], function (require, exports, module) {
-        var dependency = require("extraModuleEnvironment/dependency");
+    require.memoize("memoizing/dependent", ["memoizing/dependency"], function (require, exports, module) {
+        var dependency = require("memoizing/dependency");
 
         exports.greeting = dependency.hi;
     });
-    require.memoize("extraModuleEnvironment/dependency", [], function (require, exports, module) { exports.hi = "hello"; });
+    require.memoize("memoizing/dependency", [], function (require, exports, module) { exports.hi = "hello"; });
 
-    var dependent = require("extraModuleEnvironment/dependent");
+    var dependent = require("memoizing/dependent");
     deepEqual(dependent, { greeting: "hello" }, "The dependent module was memoized");
 });
 
