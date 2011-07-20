@@ -4,6 +4,9 @@
     var PARENT_DIRECTORY = "..";
     var MODULE_FILE_EXTENSION = ".js";
 
+    var EXTRA_MODULE_ENVIRONMENT_MODULE_ID = undefined;
+    var EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES = [];
+
     var MAIN_MODULE_ID = "";            // Browser environment: main module's identifier should be the empty string.
     var DEFAULT_MAIN_MODULE_DIR = "";   // Browser environment: paths are relative to main module path, i.e. path of HTML file that does initial module.declare.
     var DEFAULT_IS_IN_DEBUG_MODE = false;
@@ -42,7 +45,6 @@
 
     var dependencyTracker = (function () {
         var arraysById;
-        var extraModuleEnvironmentDependencies;
 
         function getIdFromPath(path) {
             var idFragments = [];
@@ -70,7 +72,7 @@
         }
 
         function getDirectoryPortion(moduleId) {
-            if (moduleId === MAIN_MODULE_ID || moduleId === undefined) {
+            if (moduleId === MAIN_MODULE_ID || moduleId === EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
                 return mainModuleDir;
             }
 
@@ -122,21 +124,21 @@
             return isValidDependencyIdentifier(arrayEntry) || isValidLabeledDependencyObject(arrayEntry);
         }
 
+        function getDependenciesFor(id) {
+            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES : arraysById[id];
+        }
+
         return {
             reset: function () {
                 arraysById = {};
                 arraysById[MAIN_MODULE_ID] = [];
-                extraModuleEnvironmentDependencies = [];
             },
             setDependenciesFor: function (id, dependencies) {
-                if (id === undefined) {
-                    Array.prototype.push.apply(extraModuleEnvironmentDependencies, dependencies);
-                }
-
+                // Note: this method is never called for id === EXTRA_MODULE_ENVIRONMENT_ID
                 arraysById[id] = dependencies;
             },
             getDependenciesCopyFor: function (id) {
-                return id === undefined ? extraModuleEnvironmentDependencies.slice() : arraysById[id].slice();
+                return getDependenciesFor(id).slice();
             },
             isValidArray: function (dependencies) {
                 return dependencies.every(isValidDependencyArrayEntry);
@@ -164,7 +166,7 @@
             getIdFromIdentifier: function (identifier, baseModuleId) {
                 var moduleDir = getDirectoryPortion(baseModuleId);
 
-                var labelsToIds = makeLabelsToIdsMap(moduleDir, arraysById[baseModuleId]);
+                var labelsToIds = makeLabelsToIdsMap(moduleDir, getDependenciesFor(baseModuleId));
                 return labelsToIds.hasOwnProperty(identifier) ? labelsToIds[identifier] : getIdFromStringIdentifier(moduleDir, identifier);
             }
         };
@@ -610,8 +612,8 @@
         requireMemo["nobleModules/debug"] = debugModule;
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
-        globalRequire = requireFactory(MAIN_MODULE_ID, []);
-        globalModule = new NobleJSModule(undefined, []);
+        globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
+        globalModule = new NobleJSModule(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
     }
 
     function initialize() {
