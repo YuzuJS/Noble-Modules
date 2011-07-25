@@ -243,7 +243,7 @@
 
                     el.addEventListener("load", onScriptLoad, false);
                     el.addEventListener("error", onScriptError, false);
-
+                    
                     // If in debug mode, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
                     // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
                     el.src = debugOptions.disableCaching ? uri + "?___________________________________" + Date.now() : uri;
@@ -583,8 +583,8 @@
     // A special debugging module with access to our internal state.
     var debugModule = Object.freeze({
         setDebugOptions: function (options) {
-            if (options.enableCaching === !!options.enableCaching) {
-                debugOptions.enableCaching = options.enableCaching;
+            if (options.disableCaching === !!options.disableCaching) {
+                debugOptions.disableCaching = options.disableCaching;
             }
             if (options.warnAboutUndeclaredDependencies === !!options.warnAboutUndeclaredDependencies) {
                 debugOptions.warnAboutUndeclaredDependencies = options.warnAboutUndeclaredDependencies;
@@ -592,7 +592,7 @@
         },
         reset: reset,
         listModules: function () {
-            console.dir(Object.keys(requireMemo).concat(Object.keys(pendingDeclarations)));
+            return Object.keys(requireMemo).concat(Object.keys(pendingDeclarations));
         }
     });
 
@@ -602,8 +602,13 @@
             throw new TypeError("mainModuleDir must be a string.");
         }
 
+        // Reset debug options.
+        debugOptions = {};
+        Object.keys(DEFAULT_DEBUG_OPTIONS).forEach(function (optionName) {
+          debugOptions[optionName] = DEFAULT_DEBUG_OPTIONS[optionName];
+        });
+
         // Reset shared state.
-        debugOptions = DEFAULT_DEBUG_OPTIONS;
         requireMemo = {};
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;

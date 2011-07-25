@@ -13,9 +13,11 @@ asyncTest("By default, scripts are cached", function () {
 	debugModule.reset();
 	
 	window.module.declare(["demos/math"], function (require, exports, module) {
-		var mathScriptEl = document.head.querySelector("script[src='demos/math.js']");
-
-		notStrictEqual(mathScriptEl, null, "In non-debug mode, the <script /> element was included directly");
+		var debugScriptEl = document.head.querySelector("script[src^='demos/math.js?']");
+		var directlyIncludedScriptEl = document.head.querySelector("script[src='demos/math.js']");
+		
+		notStrictEqual(directlyIncludedScriptEl, null, "In non-debug mode, the <script /> element was included directly");
+		strictEqual(debugScriptEl, null, "In non-debug mode, the <script /> element was not included with a query string");
 
 		start();
 	});
@@ -28,11 +30,11 @@ asyncTest("If requested, caching is prevented", function () {
 	debugModule.setDebugOptions({ disableCaching: true });
 
 	window.module.declare(["demos/math"], function (require, exports, module) {
-		var mathScriptEl = document.head.querySelector("script[src^='demos/math.js']");
-		var directlyIncludedScriptEl = document.head.querySelector("script[src$='demos/math.js?']");
+		var debugScriptEl = document.head.querySelector("script[src^='demos/math.js?']");
+		var directlyIncludedScriptEl = document.head.querySelector("script[src='demos/math.js']");
 
 		strictEqual(directlyIncludedScriptEl, null, "In debug mode, the <script /> element was not included directly");
-		notStrictEqual(mathScriptEl, null, "In debug mode, the <script /> element was included with a query string");
+		notStrictEqual(debugScriptEl, null, "In debug mode, the <script /> element was included with a query string");
 
 		start();
 	});
