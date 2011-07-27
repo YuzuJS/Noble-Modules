@@ -17,13 +17,13 @@ moduleTest("dependencies: cannot mess with", function (require, exports, module)
 moduleTest("declare: validates its arguments", function (require, exports, module) {
     // Case 1: Just the factory function
     assertArgumentValidated(
-                module.declare.bind(module),
+                module.declare,
                 Function,
                 "moduleFactory"
             );
 
     // Case 2: dependencies array plus factory function
-    assertArgumentsValidated(module.declare.bind(module), { dependencies: Array, moduleFactory: Function });
+    assertArgumentsValidated(module.declare, { dependencies: Array, moduleFactory: Function });
 
     // TODO: test for validation that parameters are always either strings or objects that contain only string properties?
 });
@@ -42,11 +42,7 @@ asyncTest("declare: accepts labeled dependency objects and correctly provides th
 });
 
 moduleTest("load: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(module.load.bind(this), { moduleIdentifier: String, onModuleLoaded: Function });
-});
-
-moduleTest('load: validates "this" pointer', function (require, exports, module) {
-    assertDisallowsUnboundThis(module.load.bind(null, "a", function () { }), "module.load");
+    assertArgumentsValidated(module.load, { moduleIdentifier: String, onModuleLoaded: Function });
 });
 
 asyncModuleTest("load: results in memoization for the simple case of a module with no dependencies", function (require, exports, module) {
@@ -113,11 +109,7 @@ asyncModuleTest("load: can load a module that uses its own copy of module.load t
 });
 
 moduleTest("provide: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(module.provide.bind(module), { dependencies: Array, onAllProvided: Function });
-});
-
-moduleTest('provide: validates "this" pointer', function (require, exports, module) {
-    assertDisallowsUnboundThis(module.provide.bind(null, [], function () { }), "module.provide");
+    assertArgumentsValidated(module.provide, { dependencies: Array, onAllProvided: Function });
 });
 
 asyncModuleTest("provide: passing an empty dependency array still results in the callback being called", function (require, exports, module) {
@@ -173,7 +165,7 @@ asyncModuleTest("provide: does not make labels available to require", function (
 });
 
 moduleTest("eventually: validates its argument", function (require, exports, module) {
-    assertArgumentValidated(module.eventually.bind(module), Function, "functionToCallEventually");
+    assertArgumentValidated(module.eventually, Function, "functionToCallEventually");
 });
 
 asyncModuleTest("eventually: causes the function to be called within a second", function (require, exports, module) {

@@ -1,7 +1,7 @@
 newTestSet("require namespace");
 
 moduleTest("id: validates its argument", function (require, exports, module) {
-    assertArgumentValidated(require.id.bind(require), String, "moduleIdentifier");
+    assertArgumentValidated(require.id, String, "moduleIdentifier");
 });
 
 moduleTest("id: most basic usage", function (require, exports, module) {
@@ -15,7 +15,7 @@ moduleTest("id: relative paths", function (require, exports, module) {
 });
 
 moduleTest("uri: validates its argument", function (require, exports, module) {
-    assertArgumentValidated(require.uri.bind(require), String, "moduleIdentifier");
+    assertArgumentValidated(require.uri, String, "moduleIdentifier");
 });
 
 moduleTest("uri: most basic functionality", function (require, exports, module) {
@@ -29,7 +29,7 @@ moduleTest("uri: relative paths", function (require, exports, module) {
 });
 
 moduleTest("memoize: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(require.memoize.bind(require), { id: String, dependencies: Array, moduleFactory: Function });
+    assertArgumentsValidated(require.memoize, { id: String, dependencies: Array, moduleFactory: Function });
 });
 
 moduleTest("memoize: cannot memoize a module that is already memoized", function (require, exports, module) {
@@ -60,7 +60,7 @@ moduleTest("memoize: a module that depends on a memoized module", function (requ
 });
 
 moduleTest("isMemoized: validates its arguments", function (require, exports, module) {
-    assertArgumentValidated(require.isMemoized.bind(require), String, "id");
+    assertArgumentValidated(require.isMemoized, String, "id");
 });
 
 moduleTest("require: validates its arguments", function (require, exports, module) {

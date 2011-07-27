@@ -20,12 +20,15 @@
     var mainModuleDir;
 
     // An id => object map giving each module's exports. Filled lazily upon first require of a given module.
-    var requireMemo;
+    var exportsMemo;
+
+    // An id => object map giving each module's "module" variable that is passed to the factory function.
+    var moduleObjectMemo;
 
     // An id => { moduleFactory, dependencies, exports } map that has an entry when a module is currently memoized, but hasn't yet been
     // required by anyone. Exports is added when module is initialized; it is same reference that is passed to the module factory function,
     // and is stored here to prevent circular dependency recursion when multiple calls to require are made while initialization of the
-    // module is still in progress. Requiring a module will remove its entry from here and move the exports to requireMemo.
+    // module is still in progress. Requiring a module will remove its entry from here and move the exports to exportsMemo.
     var pendingDeclarations;
 
     // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
@@ -260,7 +263,7 @@
 
     //#region require namespace implementation
     function isMemoizedImpl(id) {
-        return pendingDeclarations.hasOwnProperty(id) || requireMemo.hasOwnProperty(id);
+        return pendingDeclarations.hasOwnProperty(id) || exportsMemo.hasOwnProperty(id);
     }
 
     function memoizeImpl(id, dependencies, moduleFactory) {
@@ -278,11 +281,11 @@
 
             var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, originatingId);
 
-            if (!requireMemo.hasOwnProperty(id) && pendingDeclarations.hasOwnProperty(id)) {
+            if (!exportsMemo.hasOwnProperty(id) && pendingDeclarations.hasOwnProperty(id)) {
                 initializeModule(id);
             }
 
-            if (!requireMemo.hasOwnProperty(id)) {
+            if (!exportsMemo.hasOwnProperty(id)) {
                 throw new Error('Module "' + id + '" has not been provided and is not available.');
             }
 
@@ -294,7 +297,7 @@
                 }
             }
 
-            return requireMemo[id];
+            return exportsMemo[id];
         };
 
         require.id = function (moduleIdentifier) {
@@ -354,6 +357,7 @@
     //#endregion
 
     //#region Module namespace implementation
+    //#region Helper functions
     function provideDependenciesThenMemoize(id, dependencies, moduleFactory, onMemoized) {
         // Make the dependency tracker aware that this module has this dependency array.
         // We can't wait for memoizeImpl to do this for us, because that will only happen asynchronously, after script load, whereas if the user
@@ -368,7 +372,8 @@
             }
         }
 
-        provideImpl(id, dependencies, function () {
+        var moduleObject = moduleObjectMemo[id] = moduleObjectFactory(id, dependencies);
+        moduleObject.provide(dependencies, function () {
             memo();
             onMemoized();
         });
@@ -385,7 +390,7 @@
             // In that case, just use the previously-set exports; we might be only partially initialized, but that's the price you pay
             // for having circular dependencies. And, the caller still gets a reference to the exports, which will be updated as we finish
             // initialize the modules in the circle.
-            requireMemo[id] = pendingDeclarations[id].exports;
+            exportsMemo[id] = pendingDeclarations[id].exports;
             return;
         }
 
@@ -396,22 +401,22 @@
 
         // Create a context aware require, a blank exports, and get the appropriate previously-memoized module object, to pass in to moduleFactory.
         var require = requireFactory(id, dependencies);
-        var module = new NobleJSModule(id, dependencies);
+        var module = id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? globalModule : moduleObjectMemo[id];
         var exports = pendingDeclarations[id].exports = {};
 
         var factoryResult = moduleFactory(require, exports, module);
 
-        // If the moduleFactory initiated a circular require chain (see above), its exports will get stored in requireMemo[id].
+        // If the moduleFactory initiated a circular require chain (see above), its exports will get stored in exportsMemo[id].
         // But if those exports are alternate exports, we won't be able to guarantee that we hand out the same exports reference to everyone,
         // so we need to throw an error.
-        if (requireMemo.hasOwnProperty(id) && requireMemo[id] !== exports) {
+        if (exportsMemo.hasOwnProperty(id) && exportsMemo[id] !== exports) {
             throw new Error('Module "' + id + '" contains circular dependencies that return alternate exports instead of using the exports object.');
         }
 
         // If the module does not return anything, use our exports object; if it does, its exported API is the factory's returned result.
-        requireMemo[id] = factoryResult === undefined ? exports : factoryResult;
+        exportsMemo[id] = factoryResult === undefined ? exports : factoryResult;
 
-        // Now that the requireMemo has an entry for this ID, delete the pendingDeclarations entry.
+        // Now that the exportsMemo has an entry for this ID, delete the pendingDeclarations entry.
         delete pendingDeclarations[id];
     }
 
@@ -421,9 +426,33 @@
             NobleJSModule.prototype.main = globalRequire(MAIN_MODULE_ID);
         });
     }
+    //#endregion
 
-    function loadImpl(thisId, moduleIdentifier, onModuleLoaded) {
-        var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, thisId);
+    //#region Default implementations for overridable functions
+    function declareImpl(dependencies, moduleFactory) {
+        if (moduleFactory === undefined) {
+            moduleFactory = dependencies;
+            dependencies = [];
+        }
+
+        if (!globalModule.main) {
+            // The first time declare is called, there is no main module, so make this one the main module.
+            initializeMainModule(dependencies, moduleFactory);
+        } else {
+            // Otherwise we're inside a <script />-inserted module, so put things in scriptTagDeclareStorage for module.load to play with.
+            scriptTagDeclareStorage = { moduleFactory: moduleFactory, dependencies: dependencies };
+        }
+    }
+
+    function eventuallyImpl(functionToCallEventually) {
+        // "This function exists to bridge the gap between CommonJS environments that are built on event loops,
+        //  and those that are not, for the purposes of writing module provider plug-ins."
+        // We are event-loop based, so we don't need to do anything special.
+        functionToCallEventually();
+    }
+    
+    function loadImpl(moduleIdentifier, onModuleLoaded) {
+        var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, this.id);
         var uri = getUriFromId(id);
 
         if (scriptLoader.isLoading(uri)) {
@@ -458,13 +487,13 @@
         );
     }
 
-    function provideImpl(thisId, dependencies, onAllProvided) {
+    function provideImpl(dependencies, onAllProvided) {
         if (dependencies.length === 0) {
             onAllProvided();
             return;
         }
 
-        var dependencyIds = dependencyTracker.transformToIdArray(dependencies, thisId);
+        var dependencyIds = dependencyTracker.transformToIdArray(dependencies, this.id);
 
         var providedSoFar = [];
         function onDependencyProvided(id) {
@@ -477,34 +506,22 @@
 
         // NOTE: we don't split up the array (e.g. using filter) then separately perform each type of operation,
         // because execution of the loop body could change the memoization status of any given ID.
+        var that = this;
         dependencyIds.forEach(function (id) {
             var callOnDependencyProvided = function () { onDependencyProvided(id); };
 
             if (!isMemoizedImpl(id)) {
-                loadImpl(thisId, id, callOnDependencyProvided);
+                that.load(id, callOnDependencyProvided);
             } else {
                 callOnDependencyProvided();
             }
         });
     }
+    //#endregion
 
-    function declareImpl(dependencies, moduleFactory) {
-        if (!globalModule.main) {
-            // The first time declare is called, there is no main module, so make this one the main module.
-            initializeMainModule(dependencies, moduleFactory);
-        } else {
-            // Otherwise we're inside a <script />-inserted module, so put things in scriptTagDeclareStorage for module.load to play with.
-            scriptTagDeclareStorage = { moduleFactory: moduleFactory, dependencies: dependencies };
-        }
-    }
-
-    function eventuallyImpl(functionToCallEventually) {
-        // "This function exists to bridge the gap between CommonJS environments that are built on event loops,
-        //  and those that are not, for the purposes of writing module provider plug-ins."
-        // We are event-loop based, so we don't need to do anything special.
-        functionToCallEventually();
-    }
-
+    //#region The NobleJSModule class
+    // This class is accessible via module.constructor for module provider plug-ins to override,
+    // but by default its methods forward to the implementations above.
     function NobleJSModule(id, dependencies) {
         // Not writable or configurable, just enumerable.
         Object.defineProperties(this, {
@@ -519,66 +536,75 @@
         });
     }
 
-    NobleJSModule.prototype.declare = function (dependencies, moduleFactory) {
-        if (moduleFactory === undefined) {
-            moduleFactory = dependencies;
-            dependencies = [];
-        } else if (!Array.isArray(dependencies)) {
-            throw new TypeError("dependencies must be an array");
-        }
-        if (typeof moduleFactory !== "function") {
-            throw new TypeError("moduleFactory must be a function");
-        }
-        if (!dependencyTracker.isValidArray(dependencies)) {
-            throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
-        }
+    function resetNobleJSModuleMethods() {
+        NobleJSModule.prototype.declare = declareImpl;
+        NobleJSModule.prototype.eventually = eventuallyImpl;
+        NobleJSModule.prototype.load = loadImpl;
+        NobleJSModule.prototype.provide = provideImpl;
+    }
+    //#endregion
 
-        declareImpl(dependencies, moduleFactory);
+    //#region The module object factory
+    // Used to apply argument-validation decorators to NobleJSModule instances before passing the resulting objects
+    // to module factory functions. This allows module provider plug-ins to hook in by overriding
+    // module.constructor.prototype, but still benefit from argument validation without having to do it themselves.
+    // Also binds these methods to the module object, so you can do var load = module.load and use it without
+    // "this"-related problems.
+
+    var argumentValidationFunctions = {
+        declare: function (dependencies, moduleFactory) {
+            if (moduleFactory === undefined) {
+                moduleFactory = dependencies;
+                dependencies = [];
+            } else if (!Array.isArray(dependencies)) {
+                throw new TypeError("dependencies must be an array");
+            }
+            if (typeof moduleFactory !== "function") {
+                throw new TypeError("moduleFactory must be a function");
+            }
+            if (!dependencyTracker.isValidArray(dependencies)) {
+                throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
+            }
+        },
+        eventually: function (functionToCallEventually) {
+            if (typeof functionToCallEventually !== "function") {
+                throw new TypeError("functionToCallEventually must be a function.");
+            }
+        },
+        load: function (moduleIdentifier, onModuleLoaded) {
+            if (typeof moduleIdentifier !== "string") {
+                throw new TypeError("moduleIdentifier must be a string.");
+            }
+            if (typeof onModuleLoaded !== "function") {
+                throw new TypeError("onModuleLoaded must be a function.");
+            }
+        },
+        provide: function (dependencies, onAllProvided) {
+            if (!Array.isArray(dependencies)) {
+                throw new TypeError("dependencies must be an array.");
+            }
+            if (typeof onAllProvided !== "function") {
+                throw new TypeError("onAllProvided must be a function.");
+            }
+            if (!dependencyTracker.isValidArray(dependencies)) {
+                throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
+            }
+        }
     };
 
-    NobleJSModule.prototype.load = function (moduleIdentifier, onModuleLoaded) {
-        if (typeof moduleIdentifier !== "string") {
-            throw new TypeError("moduleIdentifier must be a string.");
-        }
-        if (typeof onModuleLoaded !== "function") {
-            throw new TypeError("onModuleLoaded must be a function.");
-        }
-        if (!(this instanceof NobleJSModule)) {
-            throw new Error('module.load called with incorrect "this" pointer.');
-        }
+    function moduleObjectFactory(id, dependencies) {
+        var moduleObject = new NobleJSModule(id, dependencies);
 
-        loadImpl(this.id, moduleIdentifier, onModuleLoaded);
-    };
+        Object.keys(argumentValidationFunctions).forEach(function (methodName) {
+            moduleObject[methodName] = function () {
+                argumentValidationFunctions[methodName].apply(moduleObject, arguments);
+                NobleJSModule.prototype[methodName].apply(moduleObject, arguments);
+            };
+            moduleObject[methodName].displayName = "module." + methodName;
+        });
 
-    NobleJSModule.prototype.provide = function (dependencies, onAllProvided) {
-        if (!Array.isArray(dependencies)) {
-            throw new TypeError("dependencies must be an array.");
-        }
-        if (typeof onAllProvided !== "function") {
-            throw new TypeError("onAllProvided must be a function.");
-        }
-        if (!dependencyTracker.isValidArray(dependencies)) {
-            throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
-        }
-        if (!(this instanceof NobleJSModule)) {
-            throw new Error('module.provide called with incorrect "this" pointer.');
-        }
-
-        provideImpl(this.id, dependencies, onAllProvided);
-    };
-
-    NobleJSModule.prototype.eventually = function (functionToCallEventually) {
-        if (typeof functionToCallEventually !== "function") {
-            throw new TypeError("functionToCallEventually must be a function.");
-        }
-
-        eventuallyImpl(functionToCallEventually);
-    };
-
-    NobleJSModule.prototype.declare.displayName = "module.declare";
-    NobleJSModule.prototype.load.displayName = "module.load";
-    NobleJSModule.prototype.provide.displayName = "module.provide";
-    NobleJSModule.prototype.eventually.displayName = "module.eventually";
+        return moduleObject;
+    }
     //#endregion
 
     // A special debugging module with access to our internal state.
@@ -593,7 +619,7 @@
         },
         reset: reset,
         listModules: function () {
-            return Object.keys(requireMemo).concat(Object.keys(pendingDeclarations));
+            return Object.keys(exportsMemo).concat(Object.keys(pendingDeclarations));
         }
     });
 
@@ -610,7 +636,8 @@
         });
 
         // Reset shared state.
-        requireMemo = {};
+        moduleObjectMemo = {};
+        exportsMemo = {};
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;
         memoizeListeners.reset();
@@ -620,12 +647,15 @@
         // Reset the main module; now, the next call to module.declare will declare a new main module.
         NobleJSModule.prototype.main = null;
 
+        // Reset any methods that might have been overriden by module provider plug-ins.
+        resetNobleJSModuleMethods();
+
         // Provide the debug module.
-        requireMemo["nobleModules/debug"] = debugModule;
+        exportsMemo["nobleModules/debug"] = debugModule;
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
         globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
-        globalModule = new NobleJSModule(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
+        globalModule = moduleObjectFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
     }
 
     function initialize() {
