@@ -1,7 +1,7 @@
 newTestSet("require namespace");
 
 moduleTest("id: validates its argument", function (require, exports, module) {
-    assertArgumentValidated(require.id, String, "moduleIdentifier");
+    assertArgumentsValidated(require.id, { moduleIdentifier: String });
 });
 
 moduleTest("id: most basic usage", function (require, exports, module) {
@@ -15,7 +15,7 @@ moduleTest("id: relative paths", function (require, exports, module) {
 });
 
 moduleTest("uri: validates its argument", function (require, exports, module) {
-    assertArgumentValidated(require.uri, String, "moduleIdentifier");
+    assertArgumentsValidated(require.uri, { moduleIdentifier: String });
 });
 
 moduleTest("uri: most basic functionality", function (require, exports, module) {
@@ -59,12 +59,12 @@ moduleTest("memoize: a module that depends on a memoized module", function (requ
     deepEqual(dependent, { greeting: "hello" }, "The dependent module was memoized");
 });
 
-moduleTest("isMemoized: validates its arguments", function (require, exports, module) {
-    assertArgumentValidated(require.isMemoized, String, "id");
+moduleTest("isMemoized: validates its argument", function (require, exports, module) {
+    assertArgumentsValidated(require.isMemoized, { id: String });
 });
 
-moduleTest("require: validates its arguments", function (require, exports, module) {
-    assertArgumentValidated(require, String, "moduleIdentifier");
+moduleTest("require: validates its argument", function (require, exports, module) {
+    assertArgumentsValidated(require, { moduleIdentifier: String });
 });
 
 moduleTest("require: throws an error for nonextant module", function (require, exports, module) {

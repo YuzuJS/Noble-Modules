@@ -83,11 +83,7 @@ test("Overriden declare: still has its arguments validated, without the plug-in 
     module.constructor.prototype.declare = function () {};
 
     // Case 1: Just the factory function
-    assertArgumentValidated(
-                module.declare,
-                Function,
-                "moduleFactory"
-            );
+    assertArgumentsValidated(module.declare, { moduleFactory: Function });
 
     // Case 2: dependencies array plus factory function
     assertArgumentsValidated(module.declare, { dependencies: Array, moduleFactory: Function });
@@ -95,5 +91,5 @@ test("Overriden declare: still has its arguments validated, without the plug-in 
 
 test("Overriden eventually: still has its argument validated, without the plug-in author having to do so specifically", function () {
     module.constructor.prototype.eventually = function () { };
-    assertArgumentValidated(module.eventually, Function, "functionToCallEventually");
+    assertArgumentsValidated(module.eventually, { functionToCallEventually: Function });
 });

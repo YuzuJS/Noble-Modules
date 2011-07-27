@@ -16,11 +16,7 @@ moduleTest("dependencies: cannot mess with", function (require, exports, module)
 
 moduleTest("declare: validates its arguments", function (require, exports, module) {
     // Case 1: Just the factory function
-    assertArgumentValidated(
-                module.declare,
-                Function,
-                "moduleFactory"
-            );
+    assertArgumentsValidated(module.declare, { moduleFactory: Function });
 
     // Case 2: dependencies array plus factory function
     assertArgumentsValidated(module.declare, { dependencies: Array, moduleFactory: Function });
@@ -131,7 +127,7 @@ asyncModuleTest("provide: does not make labels available to require", function (
 });
 
 moduleTest("eventually: validates its argument", function (require, exports, module) {
-    assertArgumentValidated(module.eventually, Function, "functionToCallEventually");
+    assertArgumentsValidated(module.eventually, { functionToCallEventually: Function });
 });
 
 asyncModuleTest("eventually: causes the function to be called within a second", function (require, exports, module) {

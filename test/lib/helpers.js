@@ -91,14 +91,6 @@
             }
         }
     };
-
-    global.assertDisallowsUnboundThis = function (unboundMethod, methodName) {
-        QUnit.raises(
-            unboundMethod,
-            new RegExp(methodName + ' called with incorrect "this" pointer\\.'),
-            "The appropriate error was thrown when trying to call " + methodName + " from an unbound alias."
-        );
-    };
 }(this));
 
 (function argumentValidationAssertions(global, undefined) {
@@ -132,7 +124,7 @@
              : testData + "";
     }
 
-    global.assertArgumentValidated = function (shouldThrow, desiredType, paramName, allowNull, allowUndefined) {
+    function assertArgumentValidated(shouldThrow, desiredType, paramName) {
         /// <param name="shouldThrow" type="Function">A one-parameter function (usually created using partial application) that should throw when passed something not of desiredType.</param>
         /// <param name="desiredType" type="Function">A constructor function denoting the type that must be passed to avoid TypeErrors.</param>
         /// <param name="paramName" type="String">The parameter name of shouldThrow that must match desiredType to avoid TypeErrors.</param>
@@ -154,13 +146,6 @@
         var mismatched2 = desiredType === String ? {} : "hello";
         runTheTest(mismatched1);
         runTheTest(mismatched2);
-
-        if (!allowNull) {
-            runTheTest(null);
-        }
-        if (!allowUndefined) {
-            runTheTest(undefined);
-        }
     };
 
     global.assertArgumentsValidated = function (functionUnderTest, parametersMap) {
@@ -185,35 +170,7 @@
                 return functionUnderTest.apply(null, paramsThisTime);
             }
 
-            global.assertArgumentValidated(withOtherParamsFilledValidly, type, name);
+            assertArgumentValidated(withOtherParamsFilledValidly, type, name);
         });
-    };
-
-    global.assertArrayArgumentValidated = function (shouldThrow, desiredElementType, paramName) {
-        function validateErrorObject(error) {
-            // This helps distinguish between TypeErrors thrown by the runtime and ones that come explicitly from parameter validation.
-            return error instanceof TypeError && stringStartsWith(error.message, paramName + " must be");
-        }
-
-        function runTheTest(testData) {
-            QUnit.raises(
-                function () { shouldThrow(testData); },
-                validateErrorObject,
-                "Must pass an array containing only " + getTypeName(desiredElementType) + " elements as " + paramName + "; attempted [" + testData.map(toStringForOutput) + "]"
-            );
-        }
-
-        var matched = representativesOfTypes[getTypeName(desiredElementType)];
-        var mismatched1 = desiredElementType === Function ? 5 : function () { };
-        var mismatched2 = desiredElementType === String ? {} : "hello";
-
-        var mismatchedArrays = [
-            [matched, mismatched1],
-            [matched, mismatched2],
-            [matched, null],
-            [matched, undefined]
-        ];
-
-        mismatchedArrays.forEach(runTheTest);
     };
 } (this));
