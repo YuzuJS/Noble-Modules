@@ -45,19 +45,6 @@ moduleTest("load: validates its arguments", function (require, exports, module) 
     assertArgumentsValidated(module.load, { moduleIdentifier: String, onModuleLoaded: Function });
 });
 
-asyncModuleTest("load: results in memoization for the simple case of a module with no dependencies", function (require, exports, module) {
-    module.load("demos/math", function onModuleLoad() {
-        strictEqual(require.isMemoized("demos/math"), true, "demos/math module has been loaded and memoized");
-
-        var math = require("demos/math");
-        strictEqual(typeof math, "object", "module.load has properly provided the module (i.e. calling require returns an object)");
-        strictEqual(typeof math.add, "function", "demos/math module has exported its add function");
-        strictEqual(typeof math.multiply, "function", "demos/math module has exported its multiply function");
-
-        start();
-    });
-});
-
 asyncModuleTest("load: when called twice in a row for the same module, both callbacks fire", function (require, exports, module) {
     var numberOfLoadsSoFar = 0;
 
@@ -80,31 +67,10 @@ asyncModuleTest("load: when called twice in a row for the same module, both call
     });
 });
 
-asyncModuleTest("load: can load a module that uses its own copy of module.load to acquire a dependency, passing a canonical module id", function (require, exports, module) {
+asyncModuleTest("load: does not memoize the loaded module", function (require, exports, module) {
     module.load("demos/vader", function onModuleLoaded() {
-        strictEqual(require.isMemoized("demos/vader"), true, "Vader module has been loaded and memoized");
-
-        var vader = require("demos/vader");
-        var target = {};
-        vader.forceChoke(target, function () {
-            strictEqual(target.hasOwnProperty("degreeChoked"), true, "forceChoke was able to load its dependency and choke the target");
-
-            start();
-        });
-    });
-});
-
-asyncModuleTest("load: can load a module that uses its own copy of module.load to acquire a dependency, passing a relative module identifier", function (require, exports, module) {
-    module.load("demos/luke", function onModuleLoaded() {
-        strictEqual(require.isMemoized("demos/luke"), true, "Luke module has been loaded and memoized");
-
-        var luke = require("demos/luke");
-        var target = {};
-        luke.forcePush(target, function () {
-            strictEqual(target.hasOwnProperty("degreePushed"), true, "forcePush was able to load its dependency and push the target");
-
-            start();
-        });
+        strictEqual(require.isMemoized("demos/vader"), false, "demos/vader was not memoized");
+        start();
     });
 });
 

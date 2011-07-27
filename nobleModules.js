@@ -198,7 +198,31 @@
                 }
             }
         };
-    } ());
+    }());
+
+    var loadListeners = (function () {
+        var listeners;
+
+        return {
+            reset: function () {
+                listeners = {};
+            },
+            add: function (id, listener) {
+                if (listeners.hasOwnProperty(id)) {
+                    listeners[id].push(listener);
+                } else {
+                    listeners[id] = [listener];
+                }
+            },
+            trigger: function (id) {
+                if (listeners.hasOwnProperty(id)) {
+                    listeners[id].forEach(function (listener) {
+                        listener();
+                    });
+                }
+            }
+        };
+    }());
 
     var scriptLoader = (function () {
         // Garbage object map (i.e. we only ever use loadingTracker.hasOwnProperty(uri), never loadingTracker[uri])
@@ -399,9 +423,17 @@
         var moduleFactory = pendingDeclarations[id].moduleFactory;
         var dependencies = pendingDeclarations[id].dependencies;
 
-        // Create a context aware require, a blank exports, and get the appropriate previously-memoized module object, to pass in to moduleFactory.
+        // Create a context-aware require to pass in to moduleFactory.
         var require = requireFactory(id, dependencies);
+
+        // Get or create a module object to pass in to moduleFactory. If the default implementation of module.provide is used, moduleObjectMemo
+        // will have it; otherwise, we'll need to create a new copy.
         var module = id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? globalModule : moduleObjectMemo[id];
+        if (module === undefined) {
+            module = moduleObjectMemo[id] = moduleObjectFactory(id, dependencies);
+        }
+
+        // Create an empty exports to pass in to moduleFactory, and keep it in pendingDeclarations[id] for circular reference tracking as above.
         var exports = pendingDeclarations[id].exports = {};
 
         var factoryResult = moduleFactory(require, exports, module);
@@ -456,27 +488,16 @@
         var uri = getUriFromId(id);
 
         if (scriptLoader.isLoading(uri)) {
-            memoizeListeners.add(id, onModuleLoaded);
+            loadListeners.add(id, onModuleLoaded);
             return;
         }
 
         scriptLoader.load(
             uri,
-            function onModuleFileLoaded() {
-                if (scriptTagDeclareStorage) {
-                    // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
-                    var dependencies = scriptTagDeclareStorage.dependencies;
-                    var moduleFactory = scriptTagDeclareStorage.moduleFactory;
-                    scriptTagDeclareStorage = null;
-
-                    provideDependenciesThenMemoize(id, dependencies, moduleFactory, onModuleLoaded);
-                } else {
-                    // Since this code executes immediately after the file loads, we know that if scriptTagDeclareStorage is still null, either
-                    // (a) module.declare must never have been called in the file, and thus never filled scriptTagDeclareStorage for us, or
-                    // (b) other module-related things happened after module.declare inside the file.
-                    // In both cases: BAD module author! BAD!
-                    throw new Error('module.declare was not used inside the module file at URI "' + uri + '", or was not the sole statement.');
-                }
+            function onLoaded() {
+                onModuleLoaded();
+                loadListeners.trigger(id);
+                scriptTagDeclareStorage = null;
             },
             function onError() {
                 // The callback must still be called! Calling code depends on it (even within this very file).
@@ -508,10 +529,28 @@
         // because execution of the loop body could change the memoization status of any given ID.
         var that = this;
         dependencyIds.forEach(function (id) {
-            var callOnDependencyProvided = function () { onDependencyProvided(id); };
+            function callOnDependencyProvided() {
+                onDependencyProvided(id);
+            }
+            function onModuleFileLoaded() {
+                if (scriptTagDeclareStorage) {
+                    // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
+                    var dependencies = scriptTagDeclareStorage.dependencies;
+                    var moduleFactory = scriptTagDeclareStorage.moduleFactory;
+
+                    provideDependenciesThenMemoize(id, dependencies, moduleFactory, callOnDependencyProvided);
+                } else {
+                    // Since this code executes immediately after the file loads, we know that if scriptTagDeclareStorage is still null, either
+                    // (a) module.declare must never have been called in the file, and thus never filled scriptTagDeclareStorage for us, or
+                    // (b) other module-related things happened after module.declare inside the file.
+                    // In both cases: BAD module author! BAD!
+                    callOnDependencyProvided();
+                    throw new Error('module.declare was not used inside the module with ID "' + id + '", or was not the sole statement.');
+                }
+            }
 
             if (!isMemoizedImpl(id)) {
-                that.load(id, callOnDependencyProvided);
+                that.load(id, onModuleFileLoaded);
             } else {
                 callOnDependencyProvided();
             }
@@ -640,6 +679,7 @@
         exportsMemo = {};
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;
+        loadListeners.reset();
         memoizeListeners.reset();
         scriptLoader.reset();
         dependencyTracker.reset();
