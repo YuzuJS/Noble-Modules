@@ -258,7 +258,7 @@
                     throw new Error("Tried to load script at " + uri + "; however, the script was already in the DOM.");
                 }
             }
-        }
+        };
     } ());
     //#endregion
 
