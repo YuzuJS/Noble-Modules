@@ -1,17 +1,17 @@
 newTestSet("Global objects");
 
-test("require: cannot mess with", function () {
+test("require: disallows replacement, deletion, or extension", function () {
     assertNotWritable(function () { return require; }, function () { require = "blah"; }, "Global require");
     assertNotConfigurable(function () { return require; }, function () { delete require; }, "Global require");
     assertNotExtensible(require, "Global require");
 });
 
-test("module: cannot mess with", function () {
+test("module: disallows replacement or deletion", function () {
     assertNotWritable(function () { return module; }, function () { module = "blah"; }, "Global module");
     assertNotConfigurable(function () { return module; }, function () { delete module; }, "Global module");
 });
 
-test("module.main: basic functionality", function () {
+test("module.main: declaring a main module properly sets module.main", function () {
     var mainModule;
 
     module.declare([], function (require, exports, module) {
@@ -28,7 +28,7 @@ test("module.main: basic functionality", function () {
     strictEqual(typeof module.main.print, "function", "Global main module exported the print function");
 });
 
-asyncTest("module.main: with dependencies", function () {
+asyncTest("module.main: declaring a main module properly provides its dependencies", function () {
     var mainModule;
 
     module.declare(["demos/math"], function (require, exports, module) {
