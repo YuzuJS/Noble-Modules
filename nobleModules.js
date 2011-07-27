@@ -23,9 +23,9 @@
     var requireMemo;
 
     // An id => { moduleFactory, dependencies, exports } map that has an entry when a module is currently memoized, but hasn't yet been
-    // required by anyone. Exports is added when module is initialized. This is same reference that is passed to the module factory function.
-    // Stored here to prevent circular dependency recursion when multiple calls to require are made while initialization of the module is
-    // still in progress. Requiring a module will remove it from here and move the exports to requireMemo.
+    // required by anyone. Exports is added when module is initialized; it is same reference that is passed to the module factory function,
+    // and is stored here to prevent circular dependency recursion when multiple calls to require are made while initialization of the
+    // module is still in progress. Requiring a module will remove its entry from here and move the exports to requireMemo.
     var pendingDeclarations;
 
     // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
