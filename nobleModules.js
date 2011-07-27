@@ -176,30 +176,6 @@
         };
     } ());
 
-    var memoizeListeners = (function () {
-        var listeners;
-
-        return {
-            reset: function () {
-                listeners = {};
-            },
-            add: function (id, listener) {
-                if (listeners.hasOwnProperty(id)) {
-                    listeners[id].push(listener);
-                } else {
-                    listeners[id] = [listener];
-                }
-            },
-            trigger: function (id) {
-                if (listeners.hasOwnProperty(id)) {
-                    listeners[id].forEach(function (listener) {
-                        listener();
-                    });
-                }
-            }
-        };
-    }());
-
     var loadListeners = (function () {
         var listeners;
 
@@ -219,6 +195,7 @@
                     listeners[id].forEach(function (listener) {
                         listener();
                     });
+                    delete listeners[id];
                 }
             }
         };
@@ -388,11 +365,12 @@
         // calls into the system right after this, he might hit something that depends on the dependency tracker being updated for this module.
         dependencyTracker.setDependenciesFor(id, dependencies);
 
+        // Calling this both immediately after provide and in the provide callback is necessary because in some cases provide calls its
+        // callback immediately (synchronously), whereas in others it is asynchronous. In particular, if provide doesn't callback immediately,
+        // in the circular dependency case memo() must then happen so that the module is ready by the time its dependencies are partially provided.
         function memo() {
             if (!isMemoizedImpl(id)) {
                 memoizeImpl(id, dependencies, moduleFactory);
-            } else {
-                memoizeListeners.trigger(id);
             }
         }
 
@@ -680,7 +658,6 @@
         pendingDeclarations = {};
         scriptTagDeclareStorage = null;
         loadListeners.reset();
-        memoizeListeners.reset();
         scriptLoader.reset();
         dependencyTracker.reset();
 
