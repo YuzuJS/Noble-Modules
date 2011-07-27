@@ -41,9 +41,9 @@ moduleTest("memoize: cannot memoize a module that is already memoized", function
 });
 
 test("memoize: basic functionality", function () {
-    window.require.memoize("extraModuleEnvironment/memoized", [], function (require, exports, module) { exports.hi = "hello" });
+    require.memoize("extraModuleEnvironment/memoized", [], function (require, exports, module) { exports.hi = "hello" });
 
-    var memoized = window.require("extraModuleEnvironment/memoized");
+    var memoized = require("extraModuleEnvironment/memoized");
     deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
 });
 

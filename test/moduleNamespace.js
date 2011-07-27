@@ -25,7 +25,7 @@ moduleTest("declare: validates its arguments", function (require, exports, modul
 });
 
 asyncTest("declare: accepts labeled dependency objects and correctly provides them to factory function's require", function () {
-    window.module.declare([{ mathLabel: "demos/math"}], function (require, exports, module) {
+    module.declare([{ mathLabel: "demos/math"}], function (require, exports, module) {
         strictEqual(require.id("mathLabel"), "demos/math", "The label was translated into the correct ID when using require.id");
         strictEqual(require.uri("mathLabel"), "demos/math.js", "The label was translated into the correct URI when using require.uri");
 

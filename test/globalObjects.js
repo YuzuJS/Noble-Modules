@@ -1,20 +1,20 @@
 newTestSet("Global objects");
 
 test("require: cannot mess with", function () {
-    assertNotWritable(function () { return window.require; }, function () { window.require = "blah"; }, "Global require");
-    assertNotConfigurable(function () { return window.require; }, function () { delete window.require; }, "Global require");
-    assertNotExtensible(window.require, "Global require");
+    assertNotWritable(function () { return require; }, function () { require = "blah"; }, "Global require");
+    assertNotConfigurable(function () { return require; }, function () { delete require; }, "Global require");
+    assertNotExtensible(require, "Global require");
 });
 
 test("module: cannot mess with", function () {
-    assertNotWritable(function () { return window.module; }, function () { window.module = "blah"; }, "Global module");
-    assertNotConfigurable(function () { return window.module; }, function () { delete window.module; }, "Global module");
+    assertNotWritable(function () { return module; }, function () { module = "blah"; }, "Global module");
+    assertNotConfigurable(function () { return module; }, function () { delete module; }, "Global module");
 });
 
 test("module.main: basic functionality", function () {
     var mainModule;
 
-    window.module.declare([], function (require, exports, module) {
+    module.declare([], function (require, exports, module) {
         ok(true, "Factory function passed to global module.declare was invoked");
 
         mainModule = exports;
@@ -24,14 +24,14 @@ test("module.main: basic functionality", function () {
         };
     })
 
-    strictEqual(window.module.main, mainModule, "Global main module is the one we just declared");
-    strictEqual(typeof window.module.main.print, "function", "Global main module exported the print function");
+    strictEqual(module.main, mainModule, "Global main module is the one we just declared");
+    strictEqual(typeof module.main.print, "function", "Global main module exported the print function");
 });
 
 asyncTest("module.main: with dependencies", function () {
     var mainModule;
 
-    window.module.declare(["demos/math"], function (require, exports, module) {
+    module.declare(["demos/math"], function (require, exports, module) {
         ok(true, "Factory function passed to global module.declare was invoked");
 
         var math = require("demos/math");
@@ -44,22 +44,22 @@ asyncTest("module.main: with dependencies", function () {
 });
 
 test("module.id: is undefined", function () {
-    strictEqual(window.module.id, undefined, "The id property is undefined for the global module object");
+    strictEqual(module.id, undefined, "The id property is undefined for the global module object");
 });
 
 test("module.id: is not modified by declaration of the main module", function () {
-    window.module.declare([], function () { });
+    module.declare([], function () { });
 
-    deepEqual(window.module.id, undefined, "The id property is still undefined for the global module object");
+    deepEqual(module.id, undefined, "The id property is still undefined for the global module object");
 });
 
 // See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
 test("module.dependencies: is an empty array", function () {
-    deepEqual(window.module.dependencies, [], "The dependencies property is an empty array for the global module object");
+    deepEqual(module.dependencies, [], "The dependencies property is an empty array for the global module object");
 });
 
 test("module.dependencies: is not modified by declaration of the main module", function () {
-    window.module.declare(["demos/math"], function () { });
+    module.declare(["demos/math"], function () { });
 
-    deepEqual(window.module.dependencies, [], "The dependencies property is still an empty array for the global module object");
+    deepEqual(module.dependencies, [], "The dependencies property is still an empty array for the global module object");
 });
