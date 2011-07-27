@@ -1,4 +1,4 @@
-newTestSet("Global objects");
+newTestSet("Extra-module environment");
 
 test("require: disallows replacement, deletion, or extension", function () {
     assertNotWritable(function () { return require; }, function () { require = "blah"; }, "Global require");
