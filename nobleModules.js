@@ -498,6 +498,13 @@
         }
     }
 
+    function eventuallyImpl(functionToCallEventually) {
+        // "This function exists to bridge the gap between CommonJS environments that are built on event loops,
+        //  and those that are not, for the purposes of writing module provider plug-ins."
+        // We are event-loop based, so we don't need to do anything special.
+        functionToCallEventually();
+    }
+
     function NobleJSModule(id, dependencies) {
         // Not writable or configurable, just enumerable.
         Object.defineProperties(this, {
@@ -522,10 +529,7 @@
         if (typeof moduleFactory !== "function") {
             throw new TypeError("moduleFactory must be a function");
         }
-        if (!dependencies.every(function (arrayEntry) {
-            return typeof arrayEntry === "string" ||
-                  (typeof arrayEntry === "object" && Object.keys(arrayEntry).every(function (label) { return typeof arrayEntry[label] === "string"; }));
-        })) {
+        if (!dependencyTracker.isValidArray(dependencies)) {
             throw new TypeError("dependencies must be an array of strings or labeled dependency objects.");
         }
 
@@ -568,10 +572,7 @@
             throw new TypeError("functionToCallEventually must be a function.");
         }
 
-        // "This function exists to bridge the gap between CommonJS environments that are built on event loops,
-        //  and those that are not, for the purposes of writing module provider plug-ins."
-        // We are event-loop based, so we don't need to do anything special.
-        functionToCallEventually();
+        eventuallyImpl(functionToCallEventually);
     };
 
     NobleJSModule.prototype.declare.displayName = "module.declare";
