@@ -28,7 +28,7 @@ moduleTest("declare: validates its arguments", function (require, exports, modul
     // TODO: test for validation that parameters are always either strings or objects that contain only string properties?
 });
 
-asyncTest("declare: using labeled dependency objects", function () {
+asyncTest("declare: accepts labeled dependency objects and correctly provides them to factory function's require", function () {
     window.module.declare([{ mathLabel: "demos/math"}], function (require, exports, module) {
         strictEqual(require.id("mathLabel"), "demos/math", "The label was translated into the correct ID when using require.id");
         strictEqual(require.uri("mathLabel"), "demos/math.js", "The label was translated into the correct URI when using require.uri");
@@ -49,7 +49,7 @@ moduleTest('load: validates "this" pointer', function (require, exports, module)
     assertDisallowsUnboundThis(module.load.bind(null, "a", function () { }), "module.load");
 });
 
-asyncModuleTest("load: a module that has no dependencies", function (require, exports, module) {
+asyncModuleTest("load: results in memoization for the simple case of a module with no dependencies", function (require, exports, module) {
     module.load("demos/math", function onModuleLoad() {
         strictEqual(require.isMemoized("demos/math"), true, "demos/math module has been loaded and memoized");
 
@@ -62,7 +62,7 @@ asyncModuleTest("load: a module that has no dependencies", function (require, ex
     });
 });
 
-asyncModuleTest("load: when called twice in a row, both callbacks fire", function (require, exports, module) {
+asyncModuleTest("load: when called twice in a row for the same module, both callbacks fire", function (require, exports, module) {
     var numberOfLoadsSoFar = 0;
 
     module.load("demos/math", function onLoad1() {
@@ -84,7 +84,7 @@ asyncModuleTest("load: when called twice in a row, both callbacks fire", functio
     });
 });
 
-asyncModuleTest("load: a module using its own module.load, passing a canonical module id, to acquire a dependency", function (require, exports, module) {
+asyncModuleTest("load: can load a module that uses its own copy of module.load to acquire a dependency, passing a canonical module id", function (require, exports, module) {
     module.load("demos/vader", function onModuleLoaded() {
         strictEqual(require.isMemoized("demos/vader"), true, "Vader module has been loaded and memoized");
 
@@ -98,7 +98,7 @@ asyncModuleTest("load: a module using its own module.load, passing a canonical m
     });
 });
 
-asyncModuleTest("load: a module using its own module.load, passing a relative module identifier, to acquire a dependency", function (require, exports, module) {
+asyncModuleTest("load: can load a module that uses its own copy of module.load to acquire a dependency, passing a relative module identifier", function (require, exports, module) {
     module.load("demos/luke", function onModuleLoaded() {
         strictEqual(require.isMemoized("demos/luke"), true, "Luke module has been loaded and memoized");
 
@@ -120,14 +120,14 @@ moduleTest('provide: validates "this" pointer', function (require, exports, modu
     assertDisallowsUnboundThis(module.provide.bind(null, [], function () { }), "module.provide");
 });
 
-asyncModuleTest("provide: passing an empty dependency array still calls the callback", function (require, exports, module) {
+asyncModuleTest("provide: passing an empty dependency array still results in the callback being called", function (require, exports, module) {
     module.provide([], function onModulesProvided() {
         ok(true, "Callback was called");
         start();
     });
 });
 
-asyncModuleTest("provide: multiple dependencies are memoized in callback", function (require, exports, module) {
+asyncModuleTest("provide: when passing multiple dependencies, all of them are memoized by the time the callback is called", function (require, exports, module) {
     module.provide(["demos/restaurants", "demos/hotsauce"], function onModulesProvided() {
         strictEqual(require.isMemoized("demos/restaurants"), true, "First dependency has been memoized/provided");
         strictEqual(require.isMemoized("demos/hotsauce"), true, "Second dependency has been memoized/provided");
@@ -135,14 +135,14 @@ asyncModuleTest("provide: multiple dependencies are memoized in callback", funct
     });
 });
 
-asyncModuleTest("provide: with relative identifiers", function (require, exports, module) {
+asyncModuleTest("provide: understands relative identifiers", function (require, exports, module) {
     module.provide(["demos/../demos/restaurants"], function onModulesProvided() {
         strictEqual(require.isMemoized("demos/restaurants"), true, "It figured out demos/../demos");
         start();
     });
 });
 
-asyncModuleTest("provide: with a nonextant module identifier", function (require, exports, module) {
+asyncModuleTest("provide: still calls the callback even if one of the modules in the dependencies array doesn't exist", function (require, exports, module) {
     module.provide(["asdf", "demos/restaurants"], function onModulesProvided() {
         ok(true, "Callback still got called");
         strictEqual(require.isMemoized("demos/restaurants"), true, "The extant module got memoized");
@@ -172,7 +172,7 @@ asyncModuleTest("provide: does not make labels available to require", function (
     });
 });
 
-moduleTest("eventually: validates its arguments", function (require, exports, module) {
+moduleTest("eventually: validates its argument", function (require, exports, module) {
     assertArgumentValidated(module.eventually.bind(module), Function, "functionToCallEventually");
 });
 
@@ -200,6 +200,6 @@ asyncModuleTest("eventually: causes the function to be called within a second", 
     }, 1000);
 });
 
-moduleTest("unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
+moduleTest("Unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
     strictEqual(module.uri, undefined, "module.uri is not defined");
 });

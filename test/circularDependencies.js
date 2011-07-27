@@ -1,6 +1,6 @@
 newTestSet("Circular dependencies");
 
-asyncModuleTest("Can provide a module that depends on a module that depends on it", function (require, exports, module) {
+asyncModuleTest("Can provide a module that depends on a module that depends on the original module", function (require, exports, module) {
     module.provide(["demos/circular/circularA"], function onModulesProvided() {
         ok(true, "module.provide callback called");
 
@@ -13,7 +13,7 @@ asyncModuleTest("Can provide a module that depends on a module that depends on i
     });
 });
 
-asyncModuleTest("Can provide two mutually-dependent modules", function (require, exports, module) {
+asyncModuleTest("Can provide two mutually-dependent modules in the same module.provide call", function (require, exports, module) {
     module.provide(["demos/circular/circularA", "demos/circular/circularB"], function onModulesProvided() {
         ok(true, "module.provide callback called");
 

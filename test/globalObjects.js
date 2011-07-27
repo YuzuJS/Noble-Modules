@@ -47,6 +47,12 @@ test("module.id: is undefined", function () {
     strictEqual(window.module.id, undefined, "The id property is undefined for the global module object");
 });
 
+test("module.id: is not modified by declaration of the main module", function () {
+    window.module.declare([], function () { });
+
+    deepEqual(window.module.id, undefined, "The id property is still undefined for the global module object");
+});
+
 // See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
 test("module.dependencies: is an empty array", function () {
     deepEqual(window.module.dependencies, [], "The dependencies property is an empty array for the global module object");

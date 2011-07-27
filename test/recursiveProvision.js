@@ -1,6 +1,6 @@
 newTestSet("Recursive provision");
 
-asyncModuleTest("modules that specify dependencies via relative paths", function (require, exports, module) {
+asyncModuleTest("Can provide a module that specifies its dependency via a relative path", function (require, exports, module) {
     module.provide(["demos/area"], function onModulesProvided() {
         ok(true, "Callback called");
 
@@ -12,7 +12,7 @@ asyncModuleTest("modules that specify dependencies via relative paths", function
     });
 });
 
-asyncModuleTest("require two modules that both require the same module; provide both at once", function (require, exports, module) {
+asyncModuleTest("Can provide two modules (at the same time) that both require the same module", function (require, exports, module) {
     module.provide(["demos/area", "demos/perimeter"], function onModulesProvided() {
         ok(true, "Callback called");
 
@@ -29,7 +29,7 @@ asyncModuleTest("require two modules that both require the same module; provide 
     });
 });
 
-asyncModuleTest("require two modules that both require the same module; provide separately", function (require, exports, module) {
+asyncModuleTest("Can provide two modules (one after the other) that both require the same module", function (require, exports, module) {
     var numberOfProvidesSoFar = 0;
 
     module.provide(["demos/area"], function () {
@@ -61,7 +61,7 @@ asyncModuleTest("require two modules that both require the same module; provide 
     });
 });
 
-asyncModuleTest("multiple calls to provide with the same module in the passed dependency arrays always callsback with that module fully provided", function (require, exports, module) {
+asyncModuleTest("Can provide the same module twice in a row, for the simple case of a module with no dependencies", function (require, exports, module) {
     var numberOfProvidesSoFar = 0;
 
     function assertMathExports(math) {
@@ -91,7 +91,7 @@ asyncModuleTest("multiple calls to provide with the same module in the passed de
     });
 });
 
-asyncModuleTest("multiple calls to provide with the same module in the passed dependency arrays, when that module itself has a dependency, always callsback with that module fully, recursively provided", function (require, exports, module) {
+asyncModuleTest("Can provide the same module twice in a row, for the case of a module with dependencies", function (require, exports, module) {
     var numberOfProvidesSoFar = 0;
 
     function assertAreaExports(area) {

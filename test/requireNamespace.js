@@ -1,6 +1,6 @@
 newTestSet("require namespace");
 
-moduleTest("id: validates its arguments", function (require, exports, module) {
+moduleTest("id: validates its argument", function (require, exports, module) {
     assertArgumentValidated(require.id.bind(require), String, "moduleIdentifier");
 });
 
@@ -14,7 +14,7 @@ moduleTest("id: relative paths", function (require, exports, module) {
     strictEqual(require.id("demos/../demos/circular/../theForce"), "demos/theForce", "It figured out an identifier with two ../s");
 });
 
-moduleTest("uri: validates its arguments", function (require, exports, module) {
+moduleTest("uri: validates its argument", function (require, exports, module) {
     assertArgumentValidated(require.uri.bind(require), String, "moduleIdentifier");
 });
 
@@ -79,7 +79,7 @@ moduleTest("require: throws an error for extant, but not provided, module", func
     }, Error, "Calling require threw an error when requesting the demos/math module.");
 });
 
-moduleTest("unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
+moduleTest("Unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
     strictEqual(require.paths, undefined, "require.paths is not defined");
     strictEqual(require.main, undefined, "require.main is not defined");
 });
