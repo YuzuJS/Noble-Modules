@@ -41,7 +41,7 @@ moduleTest("memoize: throws an error when trying to memoize a module that is alr
 });
 
 moduleTest("memoize: makes the memoized module available to require", function (require, exports, module) {
-    require.memoize("please/be/memoized", [], function (require, exports, module) { exports.hi = "hello" });
+    require.memoize("please/be/memoized", [], function (require, exports, module) { exports.hi = "hello"; });
 
     var memoized = require("please/be/memoized");
     deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
@@ -57,6 +57,13 @@ moduleTest("memoize: can be used to memoize dependencies of memoized modules", f
 
     var dependent = require("memoizing/dependent");
     deepEqual(dependent, { greeting: "hello" }, "The dependent module was memoized");
+});
+
+moduleTest('memoize: works even for a module named "hasOwnProperty"', function (require, exports, module) {
+    require.memoize("hasOwnProperty", [], function (require, exports, module) { exports.hi = "hello"; });
+
+    var memoized = require("hasOwnProperty");
+    deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
 });
 
 moduleTest("isMemoized: validates its argument", function (require, exports, module) {

@@ -20,16 +20,16 @@
     var mainModuleDir;
 
     // An id => object map giving each module's exports. Filled lazily upon first require of a given module.
-    var exportsMemo;
+    var exportsMemo = createMap();
 
     // An id => object map giving each module's "module" variable that is passed to the factory function.
-    var moduleObjectMemo;
+    var moduleObjectMemo = createMap();
 
     // An id => { moduleFactory, dependencies, exports } map that has an entry when a module is currently memoized, but hasn't yet been
     // required by anyone. Exports is added when module is initialized; it is same reference that is passed to the module factory function,
     // and is stored here to prevent circular dependency recursion when multiple calls to require are made while initialization of the
     // module is still in progress. Requiring a module will remove its entry from here and move the exports to exportsMemo.
-    var pendingDeclarations;
+    var pendingDeclarations = createMap();
 
     // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
     // and the callback for its <script /> tag's load event firing. Our listener (in module.load below) picks up values from here.
@@ -45,6 +45,34 @@
 
     function getUriFromId(id) {
         return id + MODULE_FILE_EXTENSION;
+    }
+
+    function createMap() {
+        var hash = {};
+
+        return {
+            containsKey: function (lookupKey) {
+                return Object.prototype.hasOwnProperty.call(hash, lookupKey);
+            },
+            get: function (lookupKey) {
+                if (!Object.prototype.hasOwnProperty.call(hash, lookupKey)) {
+                    throw new Error('Could not find entry with key "' + lookupKey + '".');
+                }
+                return hash[lookupKey];
+            },
+            set: function (lookupKey, data) {
+                hash[lookupKey] = data;
+            },
+            remove: function (lookupKey) {
+                delete hash[lookupKey];
+            },
+            empty: function () {
+                hash = {};
+            },
+            keys: function () {
+                return Object.keys(hash);
+            }
+        };
     }
 
     var dependencyTracker = (function () {
@@ -102,14 +130,14 @@
         }
 
         function makeLabelsToIdsMap(moduleDir, dependencies) {
-            var map = {};
+            var map = createMap();
 
             dependencies
                 .filter(function (dependency) { return typeof dependency === "object"; })
                 .forEach(function (labeledDependencyObject) {
                     Object.keys(labeledDependencyObject).forEach(function (label) {
                         var identifier = labeledDependencyObject[label];
-                        map[label] = getIdFromStringIdentifier(moduleDir, identifier);
+                        map.set(label, getIdFromStringIdentifier(moduleDir, identifier));
                     });
                 });
 
@@ -171,47 +199,47 @@
                 var moduleDir = getDirectoryPortion(baseModuleId);
 
                 var labelsToIds = makeLabelsToIdsMap(moduleDir, getDependenciesFor(baseModuleId));
-                return labelsToIds.hasOwnProperty(identifier) ? labelsToIds[identifier] : getIdFromStringIdentifier(moduleDir, identifier);
+                return labelsToIds.containsKey(identifier) ? labelsToIds.get(identifier) : getIdFromStringIdentifier(moduleDir, identifier);
             }
         };
     } ());
 
     var loadListeners = (function () {
-        var listeners;
+        var listeners = createMap();
 
         return {
             reset: function () {
-                listeners = {};
+                listeners.empty();
             },
             add: function (id, listener) {
-                if (listeners.hasOwnProperty(id)) {
-                    listeners[id].push(listener);
+                if (listeners.containsKey(id)) {
+                    listeners.get(id).push(listener);
                 } else {
-                    listeners[id] = [listener];
+                    listeners.set(id, [listener]);
                 }
             },
             trigger: function (id) {
-                if (listeners.hasOwnProperty(id)) {
-                    listeners[id].forEach(function (listener) {
+                if (listeners.containsKey(id)) {
+                    listeners.get(id).forEach(function (listener) {
                         listener();
                     });
-                    delete listeners[id];
+                    listeners.remove(id);
                 }
             }
         };
     }());
 
     var scriptLoader = (function () {
-        // Garbage object map (i.e. we only ever use loadingTracker.hasOwnProperty(uri), never loadingTracker[uri])
+        // Garbage object map (i.e. we only ever use loadingTracker.containsKey(uri), never loadingTracker.get(uri))
         // used to keep track of what is currently loading.
-        var loadingTracker;
+        var loadingTracker = createMap();
 
         // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, we can remove them.
         var scriptTagEls = [];
 
         return {
             reset: function () {
-                loadingTracker = {};
+                loadingTracker.empty();
 
                 // Remove any <script /> elements we inserted in a previous life.
                 scriptTagEls.forEach(function (el) {
@@ -220,16 +248,16 @@
                 scriptTagEls.length = 0;
             },
             isLoading: function (uri) {
-                return loadingTracker.hasOwnProperty(uri);
+                return loadingTracker.containsKey(uri);
             },
             load: function (uri, onLoaded, onError) {
                 if (document.head.querySelector('script[src^="' + uri + '"]') === null) {
-                    loadingTracker[uri] = {};
+                    loadingTracker.set(uri, {});
 
                     var el = document.createElement("script");
 
                     function onCommon(callback) {
-                        delete loadingTracker[uri];
+                        loadingTracker.remove(uri);
 
                         el.removeEventListener("load", onScriptLoad, false);
                         el.removeEventListener("error", onScriptError, false);
@@ -264,11 +292,11 @@
 
     //#region require namespace implementation
     function isMemoizedImpl(id) {
-        return pendingDeclarations.hasOwnProperty(id) || exportsMemo.hasOwnProperty(id);
+        return pendingDeclarations.containsKey(id) || exportsMemo.containsKey(id);
     }
 
     function memoizeImpl(id, dependencies, moduleFactory) {
-        pendingDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };
+        pendingDeclarations.set(id, { moduleFactory: moduleFactory, dependencies: dependencies });
 
         // Update our dependency array so that calls to the corresponding require know about any new labels this memoize call introduced.
         dependencyTracker.setDependenciesFor(id, dependencies);
@@ -282,11 +310,11 @@
 
             var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, originatingId);
 
-            if (!exportsMemo.hasOwnProperty(id) && pendingDeclarations.hasOwnProperty(id)) {
+            if (!exportsMemo.containsKey(id) && pendingDeclarations.containsKey(id)) {
                 initializeModule(id);
             }
 
-            if (!exportsMemo.hasOwnProperty(id)) {
+            if (!exportsMemo.containsKey(id)) {
                 throw new Error('Module "' + id + '" has not been provided and is not available.');
             }
 
@@ -298,7 +326,7 @@
                 }
             }
 
-            return exportsMemo[id];
+            return exportsMemo.get(id);
         };
 
         require.id = function (moduleIdentifier) {
@@ -374,8 +402,8 @@
             }
         }
 
-        var moduleObject = moduleObjectMemo[id] = moduleObjectFactory(id, dependencies);
-        moduleObject.provide(dependencies, function () {
+        moduleObjectMemo.set(id, moduleObjectFactory(id, dependencies));
+        moduleObjectMemo.get(id).provide(dependencies, function () {
             memo();
             onMemoized();
         });
@@ -385,49 +413,52 @@
 
     function initializeModule(id) {
         // If we already set an exports object in pendingDeclarations, then we are in a circular dependency situation.
-        // Example: in initializeModule("a"), we do pendingDeclarations["a"].exports = {}, then call moduleFactoryA, which called require("b"),
+        // Example: in initializeModule("a"), we do pendingDeclarations.get("a").exports = {}, then call moduleFactoryA, which called require("b"),
         // which called initializeModule("b"), which executed moduleFactoryB, which called require("a"), which called initializeModule("a") again,
         // which is where we're at now.
-        if (pendingDeclarations[id].exports) {
+        if (pendingDeclarations.get(id).exports) {
             // In that case, just use the previously-set exports; we might be only partially initialized, but that's the price you pay
             // for having circular dependencies. And, the caller still gets a reference to the exports, which will be updated as we finish
             // initialize the modules in the circle.
-            exportsMemo[id] = pendingDeclarations[id].exports;
+            exportsMemo.set(id, pendingDeclarations.get(id).exports);
             return;
         }
 
-        // Grab the moduleFactory and dependencies from pendingDeclarations; this is where we use them up,
-        // and we want pendingDeclarations[id] dead ASAP (i.e. before handing off control to user code by calling moduleFactory).
-        var moduleFactory = pendingDeclarations[id].moduleFactory;
-        var dependencies = pendingDeclarations[id].dependencies;
+        var moduleFactory = pendingDeclarations.get(id).moduleFactory;
+        var dependencies = pendingDeclarations.get(id).dependencies;
 
         // Create a context-aware require to pass in to moduleFactory.
         var require = requireFactory(id, dependencies);
 
         // Get or create a module object to pass in to moduleFactory. If the default implementation of module.provide is used, moduleObjectMemo
         // will have it; otherwise, we'll need to create a new copy.
-        var module = id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? globalModule : moduleObjectMemo[id];
-        if (module === undefined) {
-            module = moduleObjectMemo[id] = moduleObjectFactory(id, dependencies);
+        var module = null;
+        if (id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
+            module = globalModule;
+        } else if (moduleObjectMemo.containsKey(id)) {
+            module = moduleObjectMemo.get(id);
+        } else {
+            moduleObjectMemo.set(id, moduleObjectFactory(id, dependencies));
+            module = moduleObjectMemo.get(id);
         }
 
-        // Create an empty exports to pass in to moduleFactory, and keep it in pendingDeclarations[id] for circular reference tracking as above.
-        var exports = pendingDeclarations[id].exports = {};
+        // Create an empty exports to pass in to moduleFactory, and keep it in pendingDeclarations under id for circular reference tracking as above.
+        var exports = pendingDeclarations.get(id).exports = {};
 
         var factoryResult = moduleFactory(require, exports, module);
 
-        // If the moduleFactory initiated a circular require chain (see above), its exports will get stored in exportsMemo[id].
+        // If the moduleFactory initiated a circular require chain (see above), its exports will get stored in exportsMemo under id.
         // But if those exports are alternate exports, we won't be able to guarantee that we hand out the same exports reference to everyone,
         // so we need to throw an error.
-        if (exportsMemo.hasOwnProperty(id) && exportsMemo[id] !== exports) {
+        if (exportsMemo.containsKey(id) && exportsMemo.get(id) !== exports) {
             throw new Error('Module "' + id + '" contains circular dependencies that return alternate exports instead of using the exports object.');
         }
 
         // If the module does not return anything, use our exports object; if it does, its exported API is the factory's returned result.
-        exportsMemo[id] = factoryResult === undefined ? exports : factoryResult;
+        exportsMemo.set(id, factoryResult === undefined ? exports : factoryResult);
 
-        // Now that the exportsMemo has an entry for this ID, delete the pendingDeclarations entry.
-        delete pendingDeclarations[id];
+        // Now that the exportsMemo has an entry for this ID, remove the pendingDeclarations entry.
+        pendingDeclarations.remove(id);
     }
 
     function initializeMainModule(dependencies, moduleFactory) {
@@ -636,7 +667,7 @@
         },
         reset: reset,
         listModules: function () {
-            return Object.keys(exportsMemo).concat(Object.keys(pendingDeclarations));
+            return exportsMemo.keys().concat(pendingDeclarations.keys());
         }
     });
 
@@ -653,9 +684,9 @@
         });
 
         // Reset shared state.
-        moduleObjectMemo = {};
-        exportsMemo = {};
-        pendingDeclarations = {};
+        moduleObjectMemo.empty();
+        exportsMemo.empty();
+        pendingDeclarations.empty();
         scriptTagDeclareStorage = null;
         loadListeners.reset();
         scriptLoader.reset();
@@ -668,7 +699,7 @@
         resetNobleJSModuleMethods();
 
         // Provide the debug module.
-        exportsMemo["nobleModules/debug"] = debugModule;
+        exportsMemo.set("nobleModules/debug", debugModule);
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
         globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
