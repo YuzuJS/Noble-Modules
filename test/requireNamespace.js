@@ -40,10 +40,10 @@ moduleTest("memoize: throws an error when trying to memoize a module that is alr
     }, Error, "Threw an error when trying to memoize twice.");
 });
 
-test("memoize: makes the memoized module available to require", function () {
-    require.memoize("extraModuleEnvironment/memoized", [], function (require, exports, module) { exports.hi = "hello" });
+moduleTest("memoize: makes the memoized module available to require", function (require, exports, module) {
+    require.memoize("please/be/memoized", [], function (require, exports, module) { exports.hi = "hello" });
 
-    var memoized = require("extraModuleEnvironment/memoized");
+    var memoized = require("please/be/memoized");
     deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
 });
 
