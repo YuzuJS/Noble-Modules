@@ -76,7 +76,7 @@
     }
 
     var dependencyTracker = (function () {
-        var arraysById;
+        var arraysById = createMap();
 
         function getIdFromPath(path) {
             var idFragments = [];
@@ -157,17 +157,16 @@
         }
 
         function getDependenciesFor(id) {
-            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES : arraysById[id];
+            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES : arraysById.get(id);
         }
 
         return {
             reset: function () {
-                arraysById = {};
-                arraysById[MAIN_MODULE_ID] = [];
+                arraysById.empty();
             },
             setDependenciesFor: function (id, dependencies) {
-                // Note: this method is never called for id === EXTRA_MODULE_ENVIRONMENT_ID
-                arraysById[id] = dependencies;
+                // Note: this method is never called for id === EXTRA_MODULE_ENVIRONMENT_ID, so we don't need to handle that case
+                arraysById.set(id, dependencies);
             },
             getDependenciesCopyFor: function (id) {
                 return getDependenciesFor(id).slice();
@@ -202,7 +201,7 @@
                 return labelsToIds.containsKey(identifier) ? labelsToIds.get(identifier) : getIdFromStringIdentifier(moduleDir, identifier);
             }
         };
-    } ());
+    }());
 
     var loadListeners = (function () {
         var listeners = createMap();
@@ -276,7 +275,7 @@
                     el.addEventListener("load", onScriptLoad, false);
                     el.addEventListener("error", onScriptError, false);
                     
-                    // If in debug mode, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
+                    // If specified, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
                     // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
                     el.src = debugOptions.disableCaching ? uri + "?___________________________________" + Date.now() : uri;
 
@@ -360,7 +359,7 @@
             }
 
             if (isMemoizedImpl(id)) {
-                throw new Error(id + "is already provided.");
+                throw new Error(id + " is already provided.");
             }
 
             memoizeImpl(id, dependencies, moduleFactory);
