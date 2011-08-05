@@ -373,7 +373,9 @@
             return isMemoizedImpl(id);
         };
 
-        require.displayName = 'require <"' + originatingId + '">';
+        require.displayName = originatingId === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? "require <EME>"
+                            : originatingId === MAIN_MODULE_ID ? "require <main>"
+                            : 'require <"' + originatingId + '">';
         require.id.displayName = "require.id";
         require.uri.displayName = "require.uri";
         require.memoize.displayName = "require.memoize";
