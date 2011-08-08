@@ -131,7 +131,7 @@ asyncModuleTest("provide: still calls the callback even if one of the modules in
 asyncModuleTest("provide: two calls in a row for a nonextant module still results in both callbacks being called", function (require, exports, module) {
     var numberOfLoadsSoFar = 0;
 
-    module.provide(["asdf"], function onLoad1() {
+    module.provide(["asdf"], function onProvided1() {
         ok(true, "First callback");
 
         ++numberOfLoadsSoFar;
@@ -140,13 +140,27 @@ asyncModuleTest("provide: two calls in a row for a nonextant module still result
         }
     });
 
-    module.provide(["asdf"], function onLoad2() {
+    module.provide(["asdf"], function onProvided2() {
         ok(true, "Second callback");
 
         ++numberOfLoadsSoFar;
         if (numberOfLoadsSoFar === 2) {
             start();
         }
+    });
+});
+
+asyncModuleTest("provide: providing an extant module then a nonextant module does not mistakenly memoize the nonextant module using leftovers from the extant one", function (require, exports, module) {
+    module.provide(["demos/math"], function () {
+        ok(true, "Callback for extant module reached");
+        module.provide(["asdf"], function () {
+            ok(true, "Callback for nonextant module reached");
+
+            strictEqual(require.isMemoized("demos/math"), true, "The extant module is memoized");
+            strictEqual(require.isMemoized("asdf"), false, "The nonextant module is not memoized");
+
+            start();
+        });
     });
 });
 
