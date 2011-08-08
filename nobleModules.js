@@ -253,7 +253,7 @@
             isLoading: function (uri) {
                 return loadingTracker.containsKey(uri);
             },
-            load: function (uri, onLoaded, onError) {
+            load: function (uri, onComplete) {
                 if (isLoaded(uri)) {
                     throw new Error("Tried to load script at " + uri + "; however, the script was already in the DOM.");
                 }
@@ -262,25 +262,17 @@
 
                 var el = document.createElement("script");
 
-                function onCommon(callback) {
+                function onLoadedOrErrored(callback) {
                     loadingTracker.remove(uri);
 
-                    el.removeEventListener("load", onScriptLoad, false);
-                    el.removeEventListener("error", onScriptError, false);
+                    el.removeEventListener("load", onLoadedOrErrored, false);
+                    el.removeEventListener("error", onLoadedOrErrored, false);
 
-                    if (typeof callback === "function") {
-                        callback();
-                    }
-                }
-                function onScriptLoad() {
-                    onCommon(onLoaded);
-                }
-                function onScriptError() {
-                    onCommon(onError);
+                    onComplete();
                 }
 
-                el.addEventListener("load", onScriptLoad, false);
-                el.addEventListener("error", onScriptError, false);
+                el.addEventListener("load", onLoadedOrErrored, false);
+                el.addEventListener("error", onLoadedOrErrored, false);
                     
                 // If specified, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
                 // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
@@ -510,15 +502,8 @@
                 onModuleLoaded();
                 loadListeners.trigger(id);
                 scriptTagDeclareStorage = null;
-            },
-            function onError() {
-                // The callback must still be called! Calling code depends on it (even within this very file).
-                // The module isn't provided though, so for users of the module loader, an error will be encountered
-                // when they try to require it.
-                onModuleLoaded();
-                loadListeners.trigger(id);
             }
-        );
+       );
     }
 
     function provideImpl(dependencies, onAllProvided) {
