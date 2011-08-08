@@ -33,7 +33,6 @@ asyncModuleTest("Can provide two modules (one after the other) that both require
     var numberOfProvidesSoFar = 0;
 
     module.provide(["demos/area"], function () {
-        ++numberOfProvidesSoFar;
         ok(true, "area provide callback called");
 
         var area = require("demos/area");
@@ -41,13 +40,12 @@ asyncModuleTest("Can provide two modules (one after the other) that both require
         strictEqual(area.rectangle(2, 3), 6, "Area of a rectangle successfully computed using two modules in collaboration (require, then use later)");
         strictEqual(area.square(3), 9, "Area of a square successfully computed using two modules in collaboration (require and pick a property immediately)");
 
-        if (numberOfProvidesSoFar === 2) {
+        if (++numberOfProvidesSoFar === 2) {
             start();
         }
     });
 
     module.provide(["demos/perimeter"], function () {
-        ++numberOfProvidesSoFar;
         ok(true, "perimeter provide callback called");
 
         var perimeter = require("demos/perimeter");
@@ -55,7 +53,7 @@ asyncModuleTest("Can provide two modules (one after the other) that both require
         strictEqual(perimeter.rectangle(2, 3), 10, "Perimeter of a rectangle successfully computed using two modules in collaboration (require, then use later)");
         strictEqual(perimeter.square(3), 12, "Perimeter of a square successfully computed using two modules in collaboration (require and pick a property immediately)");
 
-        if (numberOfProvidesSoFar === 2) {
+        if (++numberOfProvidesSoFar === 2) {
             start();
         }
     });

@@ -54,12 +54,12 @@ asyncTest("Overriden provide: is called to provide the un-memoized dependencies 
         originalModuleProvide.call(this, dependencies, onAllProvided);
     };
 
-    require.memoize("dependency/1", [], function () { });
-    require.memoize("memoized", ["dependency/1", "dependency/2"], function () { });
+    require.memoize("dependency", [], function () { });
+    require.memoize("memoized", ["dependency", "demos/math"], function () { });
 
     module.declare(["memoized"], function () {
         ok(idsOfModulesProvideIsCalledOn.indexOf("memoized") !== -1, "The overriden version of module.provide was called with this.id set to the same value passed to require.memoize");
-        ok(dependenciesProvideWasCalledWith.indexOf("dependency/2") !== -1, "The overriden version of module.provide was called for the un-memoized dependency");
+        ok(dependenciesProvideWasCalledWith.indexOf("demos/math") !== -1, "The overriden version of module.provide was called for the un-memoized dependency");
 
         start();
     });
