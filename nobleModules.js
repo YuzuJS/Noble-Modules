@@ -299,6 +299,9 @@
 
         // Update our dependency array so that calls to the corresponding require know about any new labels this memoize call introduced.
         dependencyTracker.setDependenciesFor(id, dependencies);
+
+        // Create and store the module object for this module so that future code can use it to e.g. provide modules with this module as the base.
+        moduleObjectMemo.set(id, moduleObjectFactory(id, dependencies));
     }
 
     function requireFactory(originatingId, dependencies) {
@@ -388,28 +391,23 @@
 
     //#region Module namespace implementation
     //#region Helper functions
-    function provideDependenciesThenMemoize(id, dependencies, moduleFactory, onMemoized) {
-        // Make the dependency tracker aware that this module has this dependency array.
-        // We can't wait for memoizeImpl to do this for us, because that will only happen asynchronously, after script load, whereas if the user
-        // calls into the system right after this, he might hit something that depends on the dependency tracker being updated for this module.
-        dependencyTracker.setDependenciesFor(id, dependencies);
+    function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoized) {
+        // This function is called when a module is introduced via module.declare.
 
-        // Calling this both immediately after provide and in the provide callback is necessary because in some cases provide calls its
-        // callback immediately (synchronously), whereas in others it is asynchronous. In particular, if provide doesn't callback immediately,
-        // in the circular dependency case memo() must then happen so that the module is ready by the time its dependencies are partially provided.
-        function memo() {
-            if (!isMemoizedImpl(id)) {
-                memoizeImpl(id, dependencies, moduleFactory);
-            }
-        }
+        memoizeImpl(id, dependencies, moduleFactory);
+        moduleObjectMemo.get(id).provide(dependencies, onMemoized);
+    }
 
-        moduleObjectMemo.set(id, moduleObjectFactory(id, dependencies));
-        moduleObjectMemo.get(id).provide(dependencies, function () {
-            memo();
-            onMemoized();
-        });
+    function provideUnprovidedDependencies(id, onProvided) {
+        // This function is called when providing a module that has already been memoized.
+        // Even if it's been memoized, its dependencies could have been not provided, but now someone is asking
+        // to provide this module, so we need to provide its dependencies first.
 
-        memo();
+        var dependencies = dependencyTracker.getDependenciesCopyFor(id);
+        var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
+        var idsToProvide = dependencyIds.filter(function (dependencyId) { return !isMemoizedImpl(dependencyId); });
+
+        moduleObjectMemo.get(id).provide(idsToProvide, onProvided);
     }
 
     function initializeModule(id) {
@@ -431,8 +429,8 @@
         // Create a context-aware require to pass in to moduleFactory.
         var require = requireFactory(id, dependencies);
 
-        // Get or create a module object to pass in to moduleFactory. If the default implementation of module.provide is used, moduleObjectMemo
-        // will have it; otherwise, we'll need to create a new copy.
+        // Get or create a module object to pass in to moduleFactory. If the default implementation of module.provide is used, or the overriden
+        // implementation uses require.memoize, moduleObjectMemo will have it; otherwise, we'll need to create a new copy.
         var module = null;
         if (id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
             module = globalModule;
@@ -464,7 +462,7 @@
 
     function initializeMainModule(dependencies, moduleFactory) {
         NobleJSModule.prototype.main = {};
-        provideDependenciesThenMemoize(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleMemoized() {
+        memoizeAndProvideDependencies(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleMemoized() {
             NobleJSModule.prototype.main = globalRequire(MAIN_MODULE_ID);
         });
     }
@@ -548,7 +546,7 @@
                     var dependencies = scriptTagDeclareStorage.dependencies;
                     var moduleFactory = scriptTagDeclareStorage.moduleFactory;
 
-                    provideDependenciesThenMemoize(id, dependencies, moduleFactory, callOnDependencyProvided);
+                    memoizeAndProvideDependencies(id, dependencies, moduleFactory, callOnDependencyProvided);
                 } else {
                     // Since this code executes immediately after the file loads, we know that if scriptTagDeclareStorage is still null, either
                     // (a) module.declare must never have been called in the file, and thus never filled scriptTagDeclareStorage for us, or
@@ -562,7 +560,9 @@
             if (!isMemoizedImpl(id)) {
                 that.load(id, onModuleFileLoaded);
             } else {
-                callOnDependencyProvided();
+                // This is necessary for the case of modules introduced into the system via require.memoize, instead of
+                // module.declare. For more discussion see http://groups.google.com/group/commonjs/browse_thread/thread/53057f785c6f5ceb
+                provideUnprovidedDependencies(id, callOnDependencyProvided);
             }
         });
     }

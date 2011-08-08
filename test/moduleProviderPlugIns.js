@@ -25,18 +25,43 @@ test("Overriden load: still has its arguments validated, without the plug-in aut
     assertArgumentsValidated(module.load, { moduleIdentifier: String, onModuleLoaded: Function });
 });
 
-test("Overriden provide: is called to provide the dependencies when declaring the main module", function () {
-    var idOfModuleProvideIsCalledOn = null;
-    var dependenciesProvideWasCalledWith = null;
+test("Overriden provide: is called to provide the unmemoized dependencies when declaring the main module", function () {
+    var idsOfModulesProvideIsCalledOn = [];
+    var dependenciesProvideWasCalledWith = [];
     module.constructor.prototype.provide = function (dependencies, onAllProvided) {
-        idOfModuleProvideIsCalledOn = this.id;
-        dependenciesProvideWasCalledWith = dependencies;
+        idsOfModulesProvideIsCalledOn.push(this.id);
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
         onAllProvided();
     };
 
+    require.memoize("dependency/1", [], function () { });
+
     module.declare(["dependency/1", "dependency/2"], function () {
-        deepEqual(idOfModuleProvideIsCalledOn, "", 'The overriden version of module.provide was called with this.id set correctly');
-        deepEqual(dependenciesProvideWasCalledWith, ["dependency/1", "dependency/2"], "The overriden version of module.provide was called with the same dependencies array as was passed to the un-overriden module.declare");
+        ok(idsOfModulesProvideIsCalledOn.indexOf("") !== -1, "The overriden version of module.provide was called with this.id set correctly");
+        ok(dependenciesProvideWasCalledWith.indexOf("dependency/2") !== -1, "The overriden version of module.provide was called for the un-memoized dependency");
+    });
+});
+
+asyncTest("Overriden provide: is called to provide the un-memoized dependencies of a memoized module", function () {
+    var idsOfModulesProvideIsCalledOn = [];
+    var dependenciesProvideWasCalledWith = [];
+
+    var originalModuleProvide = module.constructor.prototype.provide;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        idsOfModulesProvideIsCalledOn.push(this.id);
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
+
+        originalModuleProvide.call(this, dependencies, onAllProvided);
+    };
+
+    require.memoize("dependency/1", [], function () { });
+    require.memoize("memoized", ["dependency/1", "dependency/2"], function () { });
+
+    module.declare(["memoized"], function () {
+        ok(idsOfModulesProvideIsCalledOn.indexOf("memoized") !== -1, "The overriden version of module.provide was called with this.id set to the same value passed to require.memoize");
+        ok(dependenciesProvideWasCalledWith.indexOf("dependency/2") !== -1, "The overriden version of module.provide was called for the un-memoized dependency");
+
+        start();
     });
 });
 

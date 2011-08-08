@@ -120,3 +120,45 @@ asyncModuleTest("Can provide the same module twice in a row, for the case of a m
         }
     });
 });
+
+asyncTest("If the main module depends on a memoized module that depends on un-memoized modules, the un-memoized modules are provided", function () {
+    require.memoize("memoized", ["demos/math"], function (require, exports, module) {
+        var math = require("demos/math");
+
+        exports.increment = function (x) {
+            return math.add(x, 1);
+        };
+    });
+
+    module.declare(["memoized"], function (require, exports, module) {
+        ok(true, "Main module factory function was called");
+        strictEqual(require.isMemoized("demos/math"), true, "The math module is now memoized, even though we didn't do so explicitly");
+
+        var memoized = require("memoized");
+        var five = memoized.increment(4);
+        strictEqual(five, 5, "The explicitly-memoized module correctly used the unmemoized module to increment 4 and return 5");
+
+        start();
+    });
+});
+
+asyncModuleTest("Providing a memoized module that depends on un-memoized modules results in the un-memoized modules being provided", function (require, exports, module) {
+    require.memoize("memoized", ["demos/math"], function (require, exports, module) {
+        var math = require("demos/math");
+
+        exports.increment = function (x) {
+            return math.add(x, 1);
+        };
+    });
+
+    module.provide(["memoized"], function () {
+        ok(true, "Provide callback was called");
+        strictEqual(require.isMemoized("demos/math"), true, "The math module is now memoized, even though we didn't do so explicitly");
+
+        var memoized = require("memoized");
+        var five = memoized.increment(4);
+        strictEqual(five, 5, "The explicitly-memoized module correctly used the unmemoized module to increment 4 and return 5");
+
+        start();
+    });
+});
