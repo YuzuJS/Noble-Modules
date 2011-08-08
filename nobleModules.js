@@ -699,12 +699,12 @@
         // Reset any methods that might have been overriden by module provider plug-ins.
         resetNobleJSModuleMethods();
 
-        // Provide the debug module.
-        exportsMemo.set("nobleModules/debug", debugModule);
-
         // Reset the global require and module variables that we return from the global.require and global.module getters.
         globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
         globalModule = moduleObjectFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
+
+        // Provide the debug module.
+        globalRequire.memoize("nobleModules/debug", [], function () { return debugModule; });
     }
 
     function initialize() {
