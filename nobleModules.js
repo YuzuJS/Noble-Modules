@@ -236,6 +236,10 @@
         // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, we can remove them.
         var scriptTagEls = [];
 
+        function isLoaded(uri) {
+            return document.head.querySelector('script[src^="' + uri + '"]') !== null;
+        }
+
         return {
             reset: function () {
                 loadingTracker.empty();
@@ -250,40 +254,40 @@
                 return loadingTracker.containsKey(uri);
             },
             load: function (uri, onLoaded, onError) {
-                if (document.head.querySelector('script[src^="' + uri + '"]') === null) {
-                    loadingTracker.set(uri, {});
-
-                    var el = document.createElement("script");
-
-                    function onCommon(callback) {
-                        loadingTracker.remove(uri);
-
-                        el.removeEventListener("load", onScriptLoad, false);
-                        el.removeEventListener("error", onScriptError, false);
-
-                        if (typeof callback === "function") {
-                            callback();
-                        }
-                    }
-                    function onScriptLoad() {
-                        onCommon(onLoaded);
-                    }
-                    function onScriptError() {
-                        onCommon(onError);
-                    }
-
-                    el.addEventListener("load", onScriptLoad, false);
-                    el.addEventListener("error", onScriptError, false);
-                    
-                    // If specified, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
-                    // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
-                    el.src = debugOptions.disableCaching ? uri + "?___________________________________" + Date.now() : uri;
-
-                    document.head.appendChild(el);
-                    scriptTagEls.push(el);
-                } else {
+                if (isLoaded(uri)) {
                     throw new Error("Tried to load script at " + uri + "; however, the script was already in the DOM.");
                 }
+
+                loadingTracker.set(uri, {});
+
+                var el = document.createElement("script");
+
+                function onCommon(callback) {
+                    loadingTracker.remove(uri);
+
+                    el.removeEventListener("load", onScriptLoad, false);
+                    el.removeEventListener("error", onScriptError, false);
+
+                    if (typeof callback === "function") {
+                        callback();
+                    }
+                }
+                function onScriptLoad() {
+                    onCommon(onLoaded);
+                }
+                function onScriptError() {
+                    onCommon(onError);
+                }
+
+                el.addEventListener("load", onScriptLoad, false);
+                el.addEventListener("error", onScriptError, false);
+                    
+                // If specified, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
+                // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
+                el.src = debugOptions.disableCaching ? uri + "?___________________________________" + Date.now() : uri;
+
+                document.head.appendChild(el);
+                scriptTagEls.push(el);
             }
         };
     } ());
@@ -512,6 +516,7 @@
                 // The module isn't provided though, so for users of the module loader, an error will be encountered
                 // when they try to require it.
                 onModuleLoaded();
+                loadListeners.trigger(id);
             }
         );
     }
@@ -553,7 +558,7 @@
                     // (b) other module-related things happened after module.declare inside the file.
                     // In both cases: BAD module author! BAD!
                     callOnDependencyProvided();
-                    throw new Error('module.declare was not used inside the module with ID "' + id + '", or was not the sole statement.');
+                    warn('Requested module with "' + id + '", but it was not a valid module file.');
                 }
             }
 

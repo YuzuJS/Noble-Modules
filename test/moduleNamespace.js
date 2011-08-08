@@ -63,6 +63,28 @@ asyncModuleTest("load: when called twice in a row for the same module, both call
     });
 });
 
+asyncModuleTest("load: when called twice in a row for the same nonextant module, both callbacks fire", function (require, exports, module) {
+    var numberOfLoadsSoFar = 0;
+
+    module.load("asdf", function onLoad1() {
+        ok(true, "First callback");
+
+        ++numberOfLoadsSoFar;
+        if (numberOfLoadsSoFar === 2) {
+            start();
+        }
+    });
+
+    module.load("asdf", function onLoad2() {
+        ok(true, "Second callback");
+
+        ++numberOfLoadsSoFar;
+        if (numberOfLoadsSoFar === 2) {
+            start();
+        }
+    });
+});
+
 asyncModuleTest("load: does not memoize the loaded module", function (require, exports, module) {
     module.load("demos/vader", function onModuleLoaded() {
         strictEqual(require.isMemoized("demos/vader"), false, "demos/vader was not memoized");
@@ -103,6 +125,28 @@ asyncModuleTest("provide: still calls the callback even if one of the modules in
         strictEqual(require.isMemoized("asdf"), false, "The nonextant module did not get memoized");
 
         start();
+    });
+});
+
+asyncModuleTest("provide: two calls in a row for a nonextant module still results in both callbacks being called", function (require, exports, module) {
+    var numberOfLoadsSoFar = 0;
+
+    module.provide(["asdf"], function onLoad1() {
+        ok(true, "First callback");
+
+        ++numberOfLoadsSoFar;
+        if (numberOfLoadsSoFar === 2) {
+            start();
+        }
+    });
+
+    module.provide(["asdf"], function onLoad2() {
+        ok(true, "Second callback");
+
+        ++numberOfLoadsSoFar;
+        if (numberOfLoadsSoFar === 2) {
+            start();
+        }
     });
 });
 
