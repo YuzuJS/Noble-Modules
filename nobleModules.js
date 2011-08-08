@@ -41,7 +41,7 @@
     var globalModule;
 
     ///#region Helper functions and objects
-    var warn = (console && console.warn) ? function (warning) { console.warn(warning); } : function () { };
+    var warn = (global.console && global.console.warn) ? function (warning) { global.console.warn(warning); } : function () { };
 
     function getUriFromId(id) {
         return id + MODULE_FILE_EXTENSION;
@@ -270,7 +270,6 @@
 
                     onComplete();
                 }
-
                 el.addEventListener("load", onLoadedOrErrored, false);
                 el.addEventListener("error", onLoadedOrErrored, false);
                     
