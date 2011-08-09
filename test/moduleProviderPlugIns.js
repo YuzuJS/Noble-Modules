@@ -52,7 +52,7 @@ test("Overriden provide: is called to provide the unmemoized dependencies when d
     module.constructor.prototype.provide = originalModuleProvide;
 });
 
-asyncTest("Overriden provide: is called to provide the un-memoized dependencies of a memoized module", function () {
+asyncTest("Overriden provide: is called to provide the un-memoized dependencies of a memoized dependency of a memoized dependency of the main module", function () {
     var idsOfModulesProvideIsCalledOn = [];
     var dependenciesProvideWasCalledWith = [];
 
@@ -64,14 +64,15 @@ asyncTest("Overriden provide: is called to provide the un-memoized dependencies 
         originalModuleProvide.call(this, dependencies, onAllProvided);
     };
 
-    require.memoize("dependency", [], function () { });
-    require.memoize("memoized", ["dependency", "demos/math"], function () { });
+    require.memoize("deeperDependency", ["demos/math"], function () { });
+    require.memoize("dependency", ["deeperDependency"], function () { });
+    require.memoize("memoized", ["dependency"], function () { });
 
     module.declare(["memoized"], function () {
-        ok(idsOfModulesProvideIsCalledOn.indexOf("memoized") !== -1, "The overriden version of module.provide was called with this.id set to the same value passed to require.memoize");
+        ok(idsOfModulesProvideIsCalledOn.indexOf("deeperDependency") !== -1, "The overriden version of module.provide was called with this.id set to that of the two-levels-deep dependency");
         ok(dependenciesProvideWasCalledWith.indexOf("demos/math") !== -1, "The overriden version of module.provide was called for the un-memoized dependency");
 
-        require("nobleModules").reset();
+        module.constructor.prototype.provide = originalModuleProvide;
         start();
     });
 });
