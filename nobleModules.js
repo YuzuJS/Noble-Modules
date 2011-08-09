@@ -673,8 +673,8 @@
     // A special debugging module with access to our internal state.
     var debugModule = Object.freeze({
         setDebugOptions: function (options) {
-            if (typeof options.withDebugOptions === "object" && options.withDebugOptions !== null) {
-                return;
+            if (typeof options !== "object" || options === null) {
+                options = {};
             }
 
             debugOptions = {};
@@ -692,7 +692,7 @@
 
     function reset(options) {
         if (typeof options !== "object" || options === null) {
-            options = { mainModuleDirectory: DEFAULT_MAIN_MODULE_DIR, withDebugOptions: DEFAULT_DEBUG_OPTIONS };
+            options = { mainModuleDirectory: DEFAULT_MAIN_MODULE_DIR, withDebugOptions: DEFAULT_DEBUG_OPTIONS, keepPluginOverrides: false };
         }
 
         mainModuleDir = typeof options.mainModuleDirectory === "string"
@@ -712,8 +712,10 @@
         // Reset the main module; now, the next call to module.declare will declare a new main module.
         moduleObjectFactory.setMainModuleExports(null);
 
-        // Reset any methods that might have been overriden by module provider plug-ins.
-        moduleObjectFactory.resetOverridableMethods();
+        // If desired, reset any methods that might have been overriden by module provider plug-ins.
+        if (!options.keepPluginOverrides) {
+            moduleObjectFactory.resetOverridableMethods();
+        }
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
         globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
