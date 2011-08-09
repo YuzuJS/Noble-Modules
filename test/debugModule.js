@@ -1,14 +1,14 @@
 QUnit.module("Debug module"); // Don't use newTestSet because the lifecycle there uses the debug module, which is the system under test here.
 
 test("Debug module is provided to global require", function () {
-    var debugModule = require("nobleModules/debug");
+    var debugModule = require("nobleModules");
 
     strictEqual(!!debugModule, true, "exports are truthy");
     strictEqual(typeof debugModule, "object", "exports are an object");
 });
 
 asyncTest("By default, scripts are cached", function () {
-    var debugModule = require("nobleModules/debug");
+    var debugModule = require("nobleModules");
 
     debugModule.reset();
     
@@ -24,7 +24,7 @@ asyncTest("By default, scripts are cached", function () {
 });
 
 asyncTest("If requested, caching is prevented", function () {
-    var debugModule = require("nobleModules/debug");
+    var debugModule = require("nobleModules");
 
     debugModule.reset();
     debugModule.setDebugOptions({ disableCaching: true });
@@ -47,7 +47,7 @@ asyncTest("If requested, calling require for an ID not specified in the dependen
         return;
     }
 
-    var debugModule = require("nobleModules/debug");
+    var debugModule = require("nobleModules");
 
     debugModule.reset();
     debugModule.setDebugOptions({ warnAboutUndeclaredDependencies: true });

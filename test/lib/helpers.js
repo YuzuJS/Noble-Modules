@@ -29,10 +29,10 @@
             name,
             {
                 setup: function () {
-                    global.require("nobleModules/debug").setDebugOptions({ disableCaching: true });
+                    global.require("nobleModules").setDebugOptions({ disableCaching: true });
                 },
                 teardown: function () {
-                    global.require("nobleModules/debug").reset();
+                    global.require("nobleModules").reset();
                 }
             }
         );

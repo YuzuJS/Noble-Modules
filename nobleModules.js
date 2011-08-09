@@ -12,11 +12,12 @@
 
     var DEFAULT_DEBUG_OPTIONS = { disableCaching: false, warnAboutUndeclaredDependencies: false };
 
-    // Set via require("nobleModules/debug").setDebugOptions(newOptions). Reset to default by require("nobleModules/debug").reset().
+    // Set via require("nobleModules").setDebugOptions(newOptions). Reset to default by require("nobleModules").reset().
+    // Or do both at once via require("nobleModules").reset({ withDebugOptions: newOptions }).
     var debugOptions;
 
-    // Set in reset. Defaults to DEFAULT_MAIN_MODULE_DIR, but can be changed by
-    // require("nobleModules/debug").reset(newMainModuleDir).
+    // Defaults to DEFAULT_MAIN_MODULE_DIR, but can be changed during a reset via
+    // require("nobleModules").reset({ mainModuleDirectory: newMainModuleDir }).
     var mainModuleDir;
 
     // An id => object map giving each module's exports. Filled lazily upon first require of a given module.
@@ -672,12 +673,16 @@
     // A special debugging module with access to our internal state.
     var debugModule = Object.freeze({
         setDebugOptions: function (options) {
-            if (options.disableCaching === !!options.disableCaching) {
-                debugOptions.disableCaching = options.disableCaching;
+            if (typeof options.withDebugOptions === "object" && options.withDebugOptions !== null) {
+                return;
             }
-            if (options.warnAboutUndeclaredDependencies === !!options.warnAboutUndeclaredDependencies) {
-                debugOptions.warnAboutUndeclaredDependencies = options.warnAboutUndeclaredDependencies;
-            }
+
+            debugOptions = {};
+            Object.keys(DEFAULT_DEBUG_OPTIONS).forEach(function (optionName) {
+                debugOptions[optionName] = typeof options[optionName] === typeof DEFAULT_DEBUG_OPTIONS[optionName]
+                                               ? options[optionName]
+                                               : DEFAULT_DEBUG_OPTIONS[optionName];
+            });
         },
         reset: reset,
         listModules: function () {
@@ -685,17 +690,16 @@
         }
     });
 
-    function reset(injectedMainModuleDir) {
-        mainModuleDir = injectedMainModuleDir !== undefined ? injectedMainModuleDir : DEFAULT_MAIN_MODULE_DIR;
-        if (typeof mainModuleDir !== "string") {
-            throw new TypeError("mainModuleDir must be a string.");
+    function reset(options) {
+        if (typeof options !== "object" || options === null) {
+            options = { mainModuleDirectory: DEFAULT_MAIN_MODULE_DIR, withDebugOptions: DEFAULT_DEBUG_OPTIONS };
         }
 
-        // Reset debug options.
-        debugOptions = {};
-        Object.keys(DEFAULT_DEBUG_OPTIONS).forEach(function (optionName) {
-          debugOptions[optionName] = DEFAULT_DEBUG_OPTIONS[optionName];
-        });
+        mainModuleDir = typeof options.mainModuleDirectory === "string"
+                            ? options.mainModuleDirectory
+                            : DEFAULT_MAIN_MODULE_DIR;
+
+        debugModule.setDebugOptions(options.withDebugOptions);
 
         // Reset shared state.
         moduleObjectMemo.empty();
@@ -716,7 +720,7 @@
         globalModule = moduleObjectFactory.create(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
 
         // Provide the debug module.
-        globalRequire.memoize("nobleModules/debug", [], function () { return debugModule; });
+        globalRequire.memoize("nobleModules", [], function () { return debugModule; });
     }
 
     function initialize() {
