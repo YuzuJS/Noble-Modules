@@ -542,7 +542,15 @@
                 onDependencyProvided(id);
             }
             function onModuleFileLoaded() {
-                if (scriptTagDeclareStorage) {
+                if (isMemoizedImpl(id)) {
+                    // This case occurs if the system is told to provide a module twice in a row. The first call starts the loading process,
+                    // and when finished, ends up in the next branch, calling memoizeAndProvideDependencies. The second call waits for the
+                    // loading process to complete, and when it does so, ends up in this branch, since the first call already memoized the module.
+                    var module = moduleObjectMemo.get(id);
+                    var dependencies = dependencyTracker.getDependenciesCopyFor(id);
+
+                    module.provide(dependencies, callOnDependencyProvided);
+                } else if (scriptTagDeclareStorage) {
                     // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
                     var dependencies = scriptTagDeclareStorage.dependencies;
                     var moduleFactory = scriptTagDeclareStorage.moduleFactory;
@@ -550,7 +558,8 @@
 
                     memoizeAndProvideDependencies(id, dependencies, moduleFactory, callOnDependencyProvided);
                 } else {
-                    // Since this code executes immediately after the file loads, we know that if scriptTagDeclareStorage is still null, either
+                    // Since this code executes immediately after the file loads, we know that if the module wasn't memoized but
+                    // scriptTagDeclareStorage is also null, then either:
                     // (a) module.declare must never have been called in the file, and thus never filled scriptTagDeclareStorage for us, or
                     // (b) other module-related things happened after module.declare inside the file.
                     // In both cases: BAD module author! BAD!
