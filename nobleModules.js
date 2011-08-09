@@ -464,14 +464,44 @@
         moduleObjectMemo.get(id).provide(dependencies, onMemoized);
     }
 
+    var isProvided = (function () {
+        // Being provided is a much more complicated condition than simply being memoized:
+        // * For a module with zero dependencies, being provided is equivalent to being memoized.
+        // * For all other modules, being provided means that it is memoized and all of its dependencies are provided.
+        // Such a recursive description of the condition of course lends itself to a recursive algorithm:
+        function isProvidedRecursive(id, startingId, isDepthZero) {
+            if (!isMemoizedImpl(id)) {
+                return false;
+            }
+
+            // This trickery is necessary to handle the case of circular dependencies.
+            if (id === startingId && !isDepthZero) {
+                // If we get here, the starting module passed the above isMemoized check, and we've already gone
+                // through the cycle so all of its dependencies check out as well (up to this depth), so return true:
+                // we don't need to check the starting module's dependencies again.
+                return true;
+            }
+
+            var dependencies = dependencyTracker.getDependenciesCopyFor(id);
+            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
+            return dependencyIds.every(function (dependencyId) {
+                return isProvidedRecursive(dependencyId, startingId, false);
+            });
+        }
+
+        return function isProvided(id) {
+            return isProvidedRecursive(id, id, true);
+        }
+    }());
+
     function provideUnprovidedDependencies(id, onProvided) {
         // This function is called when providing a module that has already been memoized.
-        // Even if it's been memoized, its dependencies could have been not provided, but now someone is asking
-        // to provide this module, so we need to provide its dependencies first.
+        // Even though it's been memoized, its dependencies could have been not provided, but now
+        // someone is asking to provide this module, so we need to provide its dependencies first.
 
         var dependencies = dependencyTracker.getDependenciesCopyFor(id);
         var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
-        var idsToProvide = dependencyIds.filter(function (dependencyId) { return !isMemoizedImpl(dependencyId); });
+        var idsToProvide = dependencyIds.filter(function (dependencyId) { return !isProvided(dependencyId); });
 
         moduleObjectMemo.get(id).provide(idsToProvide, onProvided);
     }
