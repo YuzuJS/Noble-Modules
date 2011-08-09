@@ -281,7 +281,7 @@
 
                 var el = document.createElement("script");
 
-                function onLoadedOrErrored(callback) {
+                function onLoadedOrErrored() {
                     el.removeEventListener("load", onLoadedOrErrored, false);
                     el.removeEventListener("error", onLoadedOrErrored, false);
 
@@ -477,9 +477,9 @@
     }
 
     function initializeMainModule(dependencies, moduleFactory) {
-        NobleJSModule.prototype.main = {};
+        NobleModule.prototype.main = {};
         memoizeAndProvideDependencies(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleMemoized() {
-            NobleJSModule.prototype.main = globalRequire(MAIN_MODULE_ID);
+            NobleModule.prototype.main = globalRequire(MAIN_MODULE_ID);
         });
     }
     //#endregion
@@ -555,7 +555,7 @@
                     // (b) other module-related things happened after module.declare inside the file.
                     // In both cases: BAD module author! BAD!
                     callOnDependencyProvided();
-                    warn('Requested module with "' + id + '", but it was not a valid module file.');
+                    warn('Tried to load module with ID "' + id + '", but it did not correspond to a valid module file.');
                 }
             }
 
@@ -570,10 +570,10 @@
     }
     //#endregion
 
-    //#region The NobleJSModule class
+    //#region The NobleModule class
     // This class is accessible via module.constructor for module provider plug-ins to override,
     // but by default its methods forward to the implementations above.
-    function NobleJSModule(id, dependencies) {
+    function NobleModule(id, dependencies) {
         // Not writable or configurable, just enumerable.
         Object.defineProperties(this, {
             id: {
@@ -587,16 +587,16 @@
         });
     }
 
-    function resetNobleJSModuleMethods() {
-        NobleJSModule.prototype.declare = declareImpl;
-        NobleJSModule.prototype.eventually = eventuallyImpl;
-        NobleJSModule.prototype.load = loadImpl;
-        NobleJSModule.prototype.provide = provideImpl;
+    function resetNobleModuleMethods() {
+        NobleModule.prototype.declare = declareImpl;
+        NobleModule.prototype.eventually = eventuallyImpl;
+        NobleModule.prototype.load = loadImpl;
+        NobleModule.prototype.provide = provideImpl;
     }
     //#endregion
 
     //#region The module object factory
-    // Used to apply argument-validation decorators to NobleJSModule instances before passing the resulting objects
+    // Used to apply argument-validation decorators to NobleModule instances before passing the resulting objects
     // to module factory functions. This allows module provider plug-ins to hook in by overriding
     // module.constructor.prototype, but still benefit from argument validation without having to do it themselves.
     // Also binds these methods to the module object, so you can do var load = module.load and use it without
@@ -644,12 +644,12 @@
     };
 
     function moduleObjectFactory(id, dependencies) {
-        var moduleObject = new NobleJSModule(id, dependencies);
+        var moduleObject = new NobleModule(id, dependencies);
 
         Object.keys(argumentValidationFunctions).forEach(function (methodName) {
             moduleObject[methodName] = function () {
                 argumentValidationFunctions[methodName].apply(moduleObject, arguments);
-                NobleJSModule.prototype[methodName].apply(moduleObject, arguments);
+                NobleModule.prototype[methodName].apply(moduleObject, arguments);
             };
             moduleObject[methodName].displayName = "module." + methodName;
         });
@@ -695,10 +695,10 @@
         dependencyTracker.reset();
 
         // Reset the main module; now, the next call to module.declare will declare a new main module.
-        NobleJSModule.prototype.main = null;
+        NobleModule.prototype.main = null;
 
         // Reset any methods that might have been overriden by module provider plug-ins.
-        resetNobleJSModuleMethods();
+        resetNobleModuleMethods();
 
         // Reset the global require and module variables that we return from the global.require and global.module getters.
         globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
