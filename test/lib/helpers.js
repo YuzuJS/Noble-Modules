@@ -32,7 +32,7 @@
                     global.require("nobleModules").setDebugOptions({ disableCaching: true });
                 },
                 teardown: function () {
-                    global.require("nobleModules").reset();
+                    global.require("nobleModules").reset({ keepPluginOverrides: true });
                 }
             }
         );

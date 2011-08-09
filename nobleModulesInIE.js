@@ -12,13 +12,14 @@
 
     module.constructor.prototype.load = function (moduleIdentifier, onModuleLoaded) {
         var id = require.id(moduleIdentifier);
+        var uri = require.uri(id);
         if (!loadingMemo.hasOwnProperty(id)) {
-            loadingMemo[id] = jQuery.ajax({ url: require.uri(id), dataType: "text" });
+            loadingMemo[id] = jQuery.ajax({ url: uri, dataType: "text" });
         }
 
         loadingMemo[id]
             .success(function (data) {
-                eval(data);
+                eval(data + "\n//@ sourceURL=" + uri);
                 onModuleLoaded();
             })
             .error(onModuleLoaded);
