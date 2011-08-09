@@ -75,6 +75,25 @@
         };
     }
 
+    function createSet() {
+        var hash = {};
+
+        return {
+            contains: function (value) {
+                return Object.prototype.hasOwnProperty.call(hash, value);
+            },
+            add: function (value) {
+                hash[value] = true;
+            },
+            remove: function (value) {
+                delete hash[value];
+            },
+            empty: function () {
+                hash = {};
+            }
+        };
+    }
+
     var dependencyTracker = (function () {
         var arraysById = createMap();
 
@@ -203,46 +222,44 @@
         };
     }());
 
-    var loadListeners = (function () {
-        var listeners = createMap();
-
-        return {
-            reset: function () {
-                listeners.empty();
-            },
-            add: function (id, listener) {
-                if (listeners.containsKey(id)) {
-                    listeners.get(id).push(listener);
-                } else {
-                    listeners.set(id, [listener]);
-                }
-            },
-            trigger: function (id) {
-                if (listeners.containsKey(id)) {
-                    listeners.get(id).forEach(function (listener) {
-                        listener();
-                    });
-                    listeners.remove(id);
-                }
-            }
-        };
-    }());
-
     var scriptLoader = (function () {
-        // Garbage object map (i.e. we only ever use loadingTracker.containsKey(uri), never loadingTracker.get(uri))
-        // used to keep track of what is currently loading.
-        var loadingTracker = createMap();
+        var loadingUriSet = createSet();
+        var loadedUriSet = createSet();
+
+        var loadListeners = (function () {
+            var listeners = createMap();
+
+            return {
+                reset: function () {
+                    listeners.empty();
+                },
+                add: function (id, listener) {
+                    if (listeners.containsKey(id)) {
+                        listeners.get(id).push(listener);
+                    } else {
+                        listeners.set(id, [listener]);
+                    }
+                },
+                trigger: function (id) {
+                    if (listeners.containsKey(id)) {
+                        listeners.get(id).forEach(function (listener) {
+                            listener();
+                        });
+                        listeners.remove(id);
+                    }
+                }
+            };
+        }());
+
 
         // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, we can remove them.
         var scriptTagEls = [];
 
-        function isLoaded(uri) {
-            return document.head.querySelector('script[src^="' + uri + '"]') !== null;
-        }
-
         return {
             reset: function () {
-                loadingTracker.empty();
+                loadingUriSet.empty();
+                loadedUriSet.empty();
+                loadListeners.reset();
 
                 // Remove any <script /> elements we inserted in a previous life.
                 scriptTagEls.forEach(function (el) {
@@ -250,25 +267,29 @@
                 });
                 scriptTagEls.length = 0;
             },
-            isLoading: function (uri) {
-                return loadingTracker.containsKey(uri);
-            },
             load: function (uri, onComplete) {
-                if (isLoaded(uri)) {
-                    throw new Error("Tried to load script at " + uri + "; however, the script was already in the DOM.");
+                if (loadedUriSet.contains(uri)) {
+                    onComplete();
+                    return;
                 }
 
-                loadingTracker.set(uri, {});
+                loadListeners.add(uri, onComplete);
+                if (loadingUriSet.contains(uri)) {
+                    return;
+                }
+                loadingUriSet.add(uri);
 
                 var el = document.createElement("script");
 
                 function onLoadedOrErrored(callback) {
-                    loadingTracker.remove(uri);
-
                     el.removeEventListener("load", onLoadedOrErrored, false);
                     el.removeEventListener("error", onLoadedOrErrored, false);
 
-                    onComplete();
+                    loadingUriSet.remove(uri);
+
+                    loadListeners.trigger(uri);
+
+                    loadedUriSet.add(uri);
                 }
                 el.addEventListener("load", onLoadedOrErrored, false);
                 el.addEventListener("error", onLoadedOrErrored, false);
@@ -490,19 +511,10 @@
         var id = dependencyTracker.getIdFromIdentifier(moduleIdentifier, this.id);
         var uri = getUriFromId(id);
 
-        if (scriptLoader.isLoading(uri)) {
-            loadListeners.add(id, onModuleLoaded);
-            return;
-        }
-
         scriptLoader.load(
             uri,
-            function onLoaded() {
-                onModuleLoaded();
-                loadListeners.trigger(id);
-                scriptTagDeclareStorage = null;
-            }
-       );
+            onModuleLoaded
+        );
     }
 
     function provideImpl(dependencies, onAllProvided) {
@@ -534,6 +546,7 @@
                     // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
                     var dependencies = scriptTagDeclareStorage.dependencies;
                     var moduleFactory = scriptTagDeclareStorage.moduleFactory;
+                    scriptTagDeclareStorage = null;
 
                     memoizeAndProvideDependencies(id, dependencies, moduleFactory, callOnDependencyProvided);
                 } else {
@@ -678,7 +691,6 @@
         exportsMemo.empty();
         pendingDeclarations.empty();
         scriptTagDeclareStorage = null;
-        loadListeners.reset();
         scriptLoader.reset();
         dependencyTracker.reset();
 
