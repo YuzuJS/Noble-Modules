@@ -489,8 +489,8 @@
             });
         }
 
-        return function isProvided(id) {
-            return isProvidedRecursive(id, id, true);
+        return function isProvided(id, startingId) {
+            return isProvidedRecursive(id, startingId, true);
         }
     }());
 
@@ -501,7 +501,7 @@
 
         var dependencies = dependencyTracker.getDependenciesCopyFor(id);
         var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
-        var idsToProvide = dependencyIds.filter(function (dependencyId) { return !isProvided(dependencyId); });
+        var idsToProvide = dependencyIds.filter(function (dependencyId) { return !isProvided(dependencyId, id); });
 
         moduleObjectMemo.get(id).provide(idsToProvide, onProvided);
     }

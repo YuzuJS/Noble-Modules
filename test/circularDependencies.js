@@ -30,3 +30,14 @@ asyncModuleTest("Can provide two mutually-dependent modules in the same module.p
         start();
     });
 });
+
+asyncModuleTest("Can provide a module that circularly depends on itself, as well as on a nonextant module", function (require, exports, module) {
+    module.provide(["demos/circular/circularAndNonextantA"], function onModulesProvided() {
+        ok(true, "module.provide callback called");
+
+        require("demos/circular/circularAndNonextantA");
+        ok(true, "module was initialized");
+
+        start();
+    });
+});
