@@ -77,6 +77,100 @@ asyncTest("Overriden provide: is called to provide the un-memoized dependencies 
     });
 });
 
+asyncTest("Overriden provide: works even with circular dependencies", function () {
+    var idsOfModulesProvideIsCalledOn = [];
+    var dependenciesProvideWasCalledWith = [];
+
+    var originalModuleProvide = module.constructor.prototype.provide;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        idsOfModulesProvideIsCalledOn.push(this.id);
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
+
+        originalModuleProvide.call(this, dependencies, onAllProvided);
+    };
+
+    module.declare(["demos/circular/circularA"], function () {
+        ok(idsOfModulesProvideIsCalledOn.indexOf("demos/circular/circularA") !== -1, "The overriden version of module.provide was called with this.id set to that of the module the main module depends on");
+        ok(dependenciesProvideWasCalledWith.indexOf("./circularB") !== -1, "The overriden version of module.provide was called to provide the other module in the circular dependency chain");
+
+        module.constructor.prototype.provide = originalModuleProvide;
+        start();
+    });
+});
+
+asyncTest("Overriden provide: works even with circular dependencies where the plug-in provides a normally nonextant module", function () {
+    var idsOfModulesProvideIsCalledOn = [];
+    var dependenciesProvideWasCalledWith = [];
+
+    var originalModuleProvide = module.constructor.prototype.provide;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        idsOfModulesProvideIsCalledOn.push(this.id);
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
+
+        if (dependencies.indexOf("asdf") !== -1) {
+            if (!require.isMemoized("asdf")) {
+                require.memoize("asdf", [], function () { });
+            }
+
+            dependencies = dependencies.splice(dependencies.indexOf("asdf"), 1);
+        }
+
+        originalModuleProvide.call(this, dependencies, onAllProvided);
+    };
+
+    module.declare(["demos/circular/circularAndNonextantA"], function () {
+        ok(idsOfModulesProvideIsCalledOn.indexOf("demos/circular/circularAndNonextantA") !== -1, "The overriden version of module.provide was called with this.id set to that of the module the main module depends on");
+        ok(dependenciesProvideWasCalledWith.indexOf("./circularAndNonextantB") !== -1, "The overriden version of module.provide was called to provide the other module in the circular dependency chain");
+        ok(dependenciesProvideWasCalledWith.indexOf("asdf") !== -1, "The overriden version of module.provide was called to provide the module the un-memoized module outside the circular dependency chain");
+
+        module.constructor.prototype.provide = originalModuleProvide;
+        start();
+    });
+});
+
+asyncTest("Overriden provide: can provide a dependency to a dependency of a memoized module", function () {
+    var idsOfModulesProvideIsCalledOn = [];
+    var dependenciesProvideWasCalledWith = [];
+
+    var originalModuleProvide = module.constructor.prototype.provide;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        idsOfModulesProvideIsCalledOn.push(this.id);
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
+
+        var desiredOperationsCompleted = 1;
+        var operationsCompleted = 0;
+        function completeOperation() {
+            if (++operationsCompleted === desiredOperationsCompleted) {
+                onAllProvided();
+            }
+        }
+
+        if (dependencies.indexOf("providedByPlugin") !== -1) {
+            if (!require.isMemoized("providedByPlugin")) {
+                ++desiredOperationsCompleted;
+                setTimeout(function () {
+                    require.memoize("providedByPlugin", [], function () { });
+                    completeOperation();
+                }, 0);
+            }
+
+            dependencies = dependencies.splice(dependencies.indexOf("asdf"), 1);
+        }
+
+        originalModuleProvide.call(this, dependencies, completeOperation);
+    };
+
+    require.memoize("memoized", ["providedByPlugin", "demos/math"], function () { });
+
+    module.declare(["memoized"], function () {
+        ok(idsOfModulesProvideIsCalledOn.indexOf("memoized") !== -1, "The overriden version of module.provide was called with this.id set to that of the memoized dependency");
+        ok(dependenciesProvideWasCalledWith.indexOf("providedByPlugin") !== -1, "The overriden version of module.provide was called to provide the module that was only available via plug-in provision");
+
+        module.constructor.prototype.provide = originalModuleProvide;
+        start();
+    });
+});
+
 test("Overriden provide: still has its arguments validated, without the plug-in author having to do so specifically", function () {
     var originalModuleProvide = module.constructor.prototype.provide;
     module.constructor.prototype.provide = function (dependencies, onAllProvided) {

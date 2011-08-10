@@ -11,7 +11,7 @@ test("module: disallows replacement or deletion", function () {
     assertNotConfigurable(function () { return module; }, function () { delete module; }, "Global module");
 });
 
-test("module.main: declaring a main module properly sets module.main", function () {
+asyncTest("module.main: declaring a main module properly sets module.main", function () {
     var mainModule;
 
     module.declare([], function (require, exports, module) {
@@ -22,10 +22,14 @@ test("module.main: declaring a main module properly sets module.main", function 
         exports.print = function (str) {
             console.log(str);
         };
-    })
 
-    strictEqual(module.main, mainModule, "Global main module is the one we just declared");
-    strictEqual(typeof module.main.print, "function", "Global main module exported the print function");
+        setTimeout(function () {
+            strictEqual(module.main, mainModule, "Global main module is the one we just declared");
+            strictEqual(typeof module.main.print, "function", "Global main module exported the print function");
+
+            start();
+        }, 0);
+    })
 });
 
 asyncTest("module.main: declaring a main module properly provides its dependencies", function () {

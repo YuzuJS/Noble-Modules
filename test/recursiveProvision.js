@@ -160,3 +160,20 @@ asyncModuleTest("Providing a memoized module that depends on un-memoized modules
         start();
     });
 });
+
+asyncModuleTest("Can provide a very deep recursive chain of memoized modules", function (require, exports, module) {
+    var chainDepth = 10000;
+
+    for (var i = 0; i < chainDepth; ++i) {
+        var id = "chain/" + i;
+        var dependencies = i !== chainDepth - 1 ? ["chain/" + (i + 1)] : [];
+
+        require.memoize(id, dependencies, function () { });
+    }
+
+    module.provide(["chain/0"], function () {
+        ok(true, "The provide callback was called");
+
+        start();
+    });
+});
