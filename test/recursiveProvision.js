@@ -161,19 +161,24 @@ asyncModuleTest("Providing a memoized module that depends on un-memoized modules
     });
 });
 
-asyncModuleTest("Can provide a very deep recursive chain of memoized modules", function (require, exports, module) {
-    var chainDepth = 10000;
+asyncModuleTest("Providing a diamond configuration does not provide a module twice", function (require, exports, module) {
+    // Use the plug-in system to record calls to provide
+    var dependenciesProvideWasCalledWith = [];
 
-    for (var i = 0; i < chainDepth; ++i) {
-        var id = "chain/" + i;
-        var dependencies = i !== chainDepth - 1 ? ["chain/" + (i + 1)] : [];
+    var originalModuleProvide = module.constructor.prototype.provide;
+    var delay = 50;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
+        originalModuleProvide.call(this, dependencies, function () {
+            setTimeout(onAllProvided, delay);
+            delay += 50;
+        });
+    };
 
-        require.memoize(id, dependencies, function () { });
-    }
+    module.provide(["demos/diamond/top"], function () {
+        ok(dependenciesProvideWasCalledWith.indexOf("./bottom") === dependenciesProvideWasCalledWith.lastIndexOf("./bottom"), "The bottom module in the diamond was only provided once");
 
-    module.provide(["chain/0"], function () {
-        ok(true, "The provide callback was called");
-
+        module.constructor.prototype.provide = originalModuleProvide;
         start();
     });
 });
