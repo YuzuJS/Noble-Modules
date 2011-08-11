@@ -95,6 +95,29 @@
         };
     }
 
+    function createListenerCollection() {
+        var listeners = createMap();
+
+        return {
+            empty: listeners.empty,
+            add: function (key, listener) {
+                if (listeners.containsKey(key)) {
+                    listeners.get(key).push(listener);
+                } else {
+                    listeners.set(key, [listener]);
+                }
+            },
+            trigger: function (key) {
+                if (listeners.containsKey(key)) {
+                    listeners.get(key).forEach(function (listener) {
+                        listener();
+                    });
+                    listeners.remove(key);
+                }
+            }
+        };
+    }
+
     var dependencyTracker = (function () {
         var arraysById = createMap();
 
@@ -226,32 +249,7 @@
     var scriptLoader = (function () {
         var loadingUriSet = createSet();
         var loadedUriSet = createSet();
-
-        var loadListeners = (function () {
-            var listeners = createMap();
-
-            return {
-                reset: function () {
-                    listeners.empty();
-                },
-                add: function (id, listener) {
-                    if (listeners.containsKey(id)) {
-                        listeners.get(id).push(listener);
-                    } else {
-                        listeners.set(id, [listener]);
-                    }
-                },
-                trigger: function (id) {
-                    if (listeners.containsKey(id)) {
-                        listeners.get(id).forEach(function (listener) {
-                            listener();
-                        });
-                        listeners.remove(id);
-                    }
-                }
-            };
-        }());
-
+        var loadListeners = createListenerCollection();
 
         // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, we can remove them.
         var scriptTagEls = [];
@@ -260,7 +258,7 @@
             reset: function () {
                 loadingUriSet.empty();
                 loadedUriSet.empty();
-                loadListeners.reset();
+                loadListeners.empty();
 
                 // Remove any <script /> elements we inserted in a previous life.
                 scriptTagEls.forEach(function (el) {
