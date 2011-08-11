@@ -175,8 +175,13 @@ asyncModuleTest("Providing a diamond configuration does not provide a module twi
         });
     };
 
+    function endsWith(string, substring) {
+        return string.indexOf(substring, string.length - substring.length) !== -1;
+    }
+
     module.provide(["demos/diamond/top"], function () {
-        ok(dependenciesProvideWasCalledWith.indexOf("./bottom") === dependenciesProvideWasCalledWith.lastIndexOf("./bottom"), "The bottom module in the diamond was only provided once");
+        var bottomInstances = dependenciesProvideWasCalledWith.filter(function (dependency) { return endsWith(dependency, "bottom"); });
+        strictEqual(bottomInstances.length, 1, "The bottom module in the diamond was only provided once");
 
         module.constructor.prototype.provide = originalModuleProvide;
         start();

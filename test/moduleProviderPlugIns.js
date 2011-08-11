@@ -91,7 +91,7 @@ asyncTest("Overriden provide: works even with circular dependencies", function (
 
     module.declare(["demos/circular/circularA"], function () {
         ok(idsOfModulesProvideIsCalledOn.indexOf("demos/circular/circularA") !== -1, "The overriden version of module.provide was called with this.id set to that of the module the main module depends on");
-        ok(dependenciesProvideWasCalledWith.indexOf("./circularB") !== -1, "The overriden version of module.provide was called to provide the other module in the circular dependency chain");
+        ok(dependenciesProvideWasCalledWith.indexOf("demos/circular/circularB") !== -1, "The overriden version of module.provide was called to provide the other module in the circular dependency chain");
 
         module.constructor.prototype.provide = originalModuleProvide;
         start();
@@ -120,7 +120,7 @@ asyncTest("Overriden provide: works even with circular dependencies where the pl
 
     module.declare(["demos/circular/circularAndNonextantA"], function () {
         ok(idsOfModulesProvideIsCalledOn.indexOf("demos/circular/circularAndNonextantA") !== -1, "The overriden version of module.provide was called with this.id set to that of the module the main module depends on");
-        ok(dependenciesProvideWasCalledWith.indexOf("./circularAndNonextantB") !== -1, "The overriden version of module.provide was called to provide the other module in the circular dependency chain");
+        ok(dependenciesProvideWasCalledWith.indexOf("demos/circular/circularAndNonextantB") !== -1, "The overriden version of module.provide was called to provide the other module in the circular dependency chain");
         ok(dependenciesProvideWasCalledWith.indexOf("asdf") !== -1, "The overriden version of module.provide was called to provide the module the un-memoized module outside the circular dependency chain");
 
         module.constructor.prototype.provide = originalModuleProvide;

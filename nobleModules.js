@@ -457,11 +457,11 @@
     //#endregion
 
     //#region Module namespace implementation
-    function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoized) {
-        // This function is called when a module is introduced via module.declare.
+    function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoizedAndProvided) {
+        // This function is called when a module is introduced via module.declare (including the main module).
 
         memoizeImpl(id, dependencies, moduleFactory);
-        moduleObjectMemo.get(id).provide(dependencies, onMemoized);
+        provideUnprovidedDependencies(id, onMemoizedAndProvided);
     }
 
     var isProvided = (function () {
@@ -571,11 +571,9 @@
 
             var dependencyIds = dependencyTracker.transformToIdArray(dependencies, this.id);
 
-            var providedSoFar = [];
-            function onDependencyProvided(id) {
-                providedSoFar.push(id);
-
-                if (providedSoFar.length === dependencyIds.length) {
+            var numberProvidedSoFar = 0;
+            function onDependencyProvided() {
+                if (++numberProvidedSoFar === dependencyIds.length) {
                     onAllProvided();
                 }
             }
@@ -584,42 +582,41 @@
             // because execution of the loop body could change the memoization status of any given ID.
             var that = this;
             dependencyIds.forEach(function (id) {
-                function callOnDependencyProvided() {
-                    onDependencyProvided(id);
-                }
                 function onModuleFileLoaded() {
                     if (isMemoizedImpl(id)) {
                         // This case occurs if the system is told to provide a module twice in a row. The first call starts the loading process,
                         // and when finished, ends up in the next branch, calling memoizeAndProvideDependencies. The second call waits for the
                         // loading process to complete, and when it does so, ends up in this branch, since the first call already memoized the module.
-                        var module = moduleObjectMemo.get(id);
-                        var dependencies = dependencyTracker.getDependenciesCopyFor(id);
-
-                        module.provide(dependencies, callOnDependencyProvided);
+                        provideUnprovidedDependencies(id, onDependencyProvided);
                     } else if (scriptTagDeclareStorage) {
                         // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
                         var dependencies = scriptTagDeclareStorage.dependencies;
                         var moduleFactory = scriptTagDeclareStorage.moduleFactory;
                         scriptTagDeclareStorage = null;
 
-                        memoizeAndProvideDependencies(id, dependencies, moduleFactory, callOnDependencyProvided);
+                        memoizeAndProvideDependencies(id, dependencies, moduleFactory, onDependencyProvided);
                     } else {
                         // Since this code executes immediately after the file loads, we know that if the module wasn't memoized but
                         // scriptTagDeclareStorage is also null, then either:
                         // (a) module.declare must never have been called in the file, and thus never filled scriptTagDeclareStorage for us, or
                         // (b) other module-related things happened after module.declare inside the file.
                         // In both cases: BAD module author! BAD!
-                        callOnDependencyProvided();
                         warn('Tried to load module with ID "' + id + '", but it did not correspond to a valid module file.');
+
+                        onDependencyProvided();
                     }
                 }
 
-                if (!isMemoizedImpl(id)) {
-                    that.load(id, onModuleFileLoaded);
-                } else {
+                if (isMemoizedImpl(id)) {
                     // This is necessary for the case of modules introduced into the system via require.memoize, instead of
                     // module.declare. For more discussion see http://groups.google.com/group/commonjs/browse_thread/thread/53057f785c6f5ceb
-                    provideUnprovidedDependencies(id, callOnDependencyProvided);
+
+                    // Note that we don't just unconditionally do that.load(id, onModuleFileLoaded) and count on the first branch in onModuleFileLoaded,
+                    // (which does essentially the same thing) because we want to avoid calling into a possibly-third-party module.load.
+
+                    provideUnprovidedDependencies(id, onDependencyProvided);
+                } else {
+                    that.load(id, onModuleFileLoaded);
                 }
             });
         }
