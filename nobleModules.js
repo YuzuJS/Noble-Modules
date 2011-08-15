@@ -87,6 +87,9 @@
             },
             empty: function () {
                 hash = {};
+            },
+            values: function () {
+                return Object.keys(hash);
             }
         };
     }
@@ -121,7 +124,7 @@
             if (++numberOfCallbacksSoFar === numberOfCallbacks) {
                 onAllCompleted();
             }
-        }
+        };
     }
 
     var dependencyTracker = (function () {
@@ -502,38 +505,47 @@
         var providedIdSet = createSet();
         var provideListeners = createListenerCollection();
 
-        function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoizedAndProvided) {
-            // This function is called when a module is introduced via module.declare (including the main module).
+        var provisionWaitingTracker = (function () {
+            var waitingForToWaiters = createMap();
 
-            memoizeImpl(id, dependencies, moduleFactory);
-            provideUnprovidedDependencies(id, onMemoizedAndProvided);
-        }
+            return {
+                recordAsWaitingOn: function (beingProvided, waiter) {
+                    if (beingProvided === waiter) {
+                        // Take care of the case where the below recursion ends up degenerately recording A depends on A.
+                        return;
+                    }
 
-        var doesXDependOnY = (function () {
-            // This function is used to detect circular dependency chains inside of provideUnprovidedDependencies.
-            // It recursively branches out from X's dependencies, and short-circuits to return false if it ends up at a module
-            // that has not yet been memoized (and thus whose dependencies are not available).
+                    // Add an entry saying waiter depends on beingProvided.
+                    if (!waitingForToWaiters.containsKey(beingProvided)) {
+                        waitingForToWaiters.set(beingProvided, createSet());
+                    }
+                    waitingForToWaiters.get(beingProvided).add(waiter);
 
-            function doesXDependOnYRecursive(x, y, start) {
-                if (!isMemoizedImpl(x)) {
-                    // Short-cirtcuit if X has not been memoized and we thus don't know its dependencies.
-                    return false;
-                }
+                    // If other modules are waiting on waiter, we need to note that they are now also waiting on beingProvided.
+                    if (waitingForToWaiters.containsKey(waiter)) {
+                        waitingForToWaiters.get(waiter).values().forEach(function (waitingOnWaiter) {
+                            if (!waitingForToWaiters.containsKey(beingProvided) || !waitingForToWaiters.get(beingProvided).contains(waitingOnWaiter)) {
+                                provisionWaitingTracker.recordAsWaitingOn(beingProvided, waitingOnWaiter);
+                            }
+                        });
+                    }
 
-                var dependencyIds = dependencyTracker.getDependencyIdsFor(x);
-
-                // Recall that Array#some will return false if the array contains zero elements, so that is one end condition of the recursion.
-                return dependencyIds.some(function (dependencyId) {
-                    // If we have (via recursion) followed a circular dependency chain and ended up back where we started,
-                    // bail out of this branch of the recursion; X does not depend on X. Otherwise, if we ended up at Y, return true.
-                    // Finally, if we're not at Y (yet), recursively ask if this dependency of X itself depends on Y.
-                    return dependencyId !== start && (dependencyId === y || doesXDependOnYRecursive(dependencyId, y, start));
-                });
-            }
-
-            return function (x, y) {
-                return doesXDependOnYRecursive(x, y, x);
-            }
+                    // And if beingProvided is being waited on by other modules, we need to note that waiter
+                    // is also waiting on those modules in addition to just beingProvided itself.
+                    waitingForToWaiters.keys().forEach(function (key) {
+                        if (waitingForToWaiters.get(key).contains(beingProvided) && !waitingForToWaiters.get(key).contains(waiter)) {
+                            provisionWaitingTracker.recordAsWaitingOn(key, waiter);
+                        }
+                    });
+                },
+                isWaitingOn: function (beingProvided, waiter) {
+                    return waitingForToWaiters.containsKey(beingProvided) && waitingForToWaiters.get(beingProvided).contains(waiter);
+                },
+                onProvided: function (isNowProvided) {
+                    waitingForToWaiters.remove(isNowProvided);
+                },
+                reset: waitingForToWaiters.empty
+            };
         }());
 
         function provideUnprovidedDependencies(id, onProvided) {
@@ -541,19 +553,26 @@
             // Even though it's been memoized, its dependencies could have been not provided, but now
             // someone is asking to provide this module, so we need to provide its dependencies first.
 
-            var dependencyIds = dependencyTracker.getDependencyIdsFor(id);
-
             // Figure out what is currently in the process of being provided that we need to wait on, and what we need to provide ourselves.
             // In the former case, don't wait on dependencies in a circular dependency chain: for them, the provision that a module is not provided
             // until all its dependencies are provided cannot be fulfilled.
-            var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !doesXDependOnY(dependencyId, id); });
+            var dependencyIds = dependencyTracker.getDependencyIdsFor(id);
+            var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !provisionWaitingTracker.isWaitingOn(id, dependencyId); });
             var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
 
             var provideCallback = createCallbackAggregator(beingProvided.length + 1, onProvided);
             beingProvided.forEach(function (dependencyBeingProvided) {
+                provisionWaitingTracker.recordAsWaitingOn(dependencyBeingProvided, id);
                 provideListeners.add(dependencyBeingProvided, provideCallback);
             });
             moduleObjectMemo.get(id).provide(needToProvide, provideCallback);
+        }
+
+        function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoizedAndProvided) {
+            // This function is called when a module is introduced via module.declare (including the main module).
+
+            memoizeImpl(id, dependencies, moduleFactory);
+            provideUnprovidedDependencies(id, onMemoizedAndProvided);
         }
         //#endregion
 
@@ -602,18 +621,25 @@
                 return;
             }
 
-            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, this.id);
-
+            var id = this.id;
+            var load = this.load;
+            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
             var onDependencyProvided = createCallbackAggregator(dependencyIds.length, onAllProvided);
 
             // Do a first pass to fill in the providingIdSet, so that it's up-to-date in any recursive provide calls we make in the following loop.
             dependencyIds.forEach(providingIdSet.add);
 
-            var load = this.load;
+            // Similarly, let the provisionWaitingTracker know that id will be waiting on each of these dependencies.
+            dependencyIds.forEach(function (dependencyId) {
+                provisionWaitingTracker.recordAsWaitingOn(dependencyId, id);
+            });
+
+            // Provide each dependency, loading it first if necessary.
             dependencyIds.forEach(function (id) {
                 function onThisDependencyProvided() {
                     providingIdSet.remove(id);
                     providedIdSet.add(id);
+                    provisionWaitingTracker.onProvided(id);
                     provideListeners.trigger(id);
                     onDependencyProvided();
                 }
@@ -727,6 +753,7 @@
                 providingIdSet.empty();
                 providedIdSet.empty();
                 provideListeners.empty();
+                provisionWaitingTracker.reset();
                 scriptTagDeclareStorage = null;
 
                 // Reset the main module; now, the next call to module.declare will declare a new main module.
