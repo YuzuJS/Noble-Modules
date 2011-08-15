@@ -1,5 +1,5 @@
 ﻿module.declare(["./circularB"], function (require, exports, module) {
-	var circularA = require("./circularB");
+	var circularB = require("./circularB");
 
 	exports.getValue = function () {
 		return "a";
