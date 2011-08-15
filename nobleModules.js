@@ -32,10 +32,6 @@
     // module is still in progress. Requiring a module will remove its entry from here and move the exports to exportsMemo.
     var pendingDeclarations = createMap();
 
-    // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
-    // and the callback for its <script /> tag's load event firing. Our listener (in module.load below) picks up values from here.
-    var scriptTagDeclareStorage = null;
-
     // The global instances of require and module are stored here and returned in getters, so that we can use Object.defineProperties(global, ...)
     // to prevent users from overwriting global.require and global.module, but still reset them ourselves in the reset function.
     var globalRequire;
@@ -116,6 +112,16 @@
                 }
             }
         };
+    }
+
+    function createCallbackAggregator(numberOfCallbacks, onAllCompleted) {
+        var numberOfCallbacksSoFar = 0;
+
+        return function () {
+            if (++numberOfCallbacksSoFar === numberOfCallbacks) {
+                onAllCompleted();
+            }
+        }
     }
 
     var dependencyTracker = (function () {
@@ -455,61 +461,6 @@
     //#endregion
 
     //#region Module namespace implementation
-    var providingIdSet = createSet();
-    var providedIdSet = createSet();
-    var provideListeners = createListenerCollection();
-
-    function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoizedAndProvided) {
-        // This function is called when a module is introduced via module.declare (including the main module).
-
-        memoizeImpl(id, dependencies, moduleFactory);
-        provideUnprovidedDependencies(id, onMemoizedAndProvided);
-    }
-
-    var doesXDependOnY = (function () {
-        function doesXDependOnYRecursive(x, y, start) {
-            if (!isMemoizedImpl(x)) {
-                return false;
-            }
-
-            var dependencies = dependencyTracker.getDependenciesCopyFor(x);
-            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, x);
-
-            return dependencyIds.some(function (dependencyId) {
-                return dependencyId !== start && (dependencyId === y || doesXDependOnYRecursive(dependencyId, y));
-            });
-        }
-
-        return function (x, y) {
-            return doesXDependOnYRecursive(x, y, x);
-        }
-    }());
-
-    function provideUnprovidedDependencies(id, onProvided) {
-        // This function is called when providing a module that has already been memoized.
-        // Even though it's been memoized, its dependencies could have been not provided, but now
-        // someone is asking to provide this module, so we need to provide its dependencies first.
-
-        var dependencies = dependencyTracker.getDependenciesCopyFor(id);
-        var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
-
-        var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !doesXDependOnY(dependencyId, id); });
-        var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
-
-        var operationsCompleted = 0;
-        var operationsToComplete = beingProvided.length + 1;
-        function completeOperation() {
-            if (++operationsCompleted === operationsToComplete) {
-                onProvided();
-            }
-        }
-
-        beingProvided.forEach(function (dependencyBeingProvided) {
-            provideListeners.add(dependencyBeingProvided, completeOperation);
-        });
-        moduleObjectMemo.get(id).provide(needToProvide, completeOperation);
-    }
-
     var moduleObjectFactory = (function () {
         // This class is accessible via module.constructor for module provider plug-ins to override,
         // but by default its methods forward to the implementations below.
@@ -527,6 +478,66 @@
             });
         }
 
+        //#region Module provision implementation
+        var providingIdSet = createSet();
+        var providedIdSet = createSet();
+        var provideListeners = createListenerCollection();
+
+        function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoizedAndProvided) {
+            // This function is called when a module is introduced via module.declare (including the main module).
+
+            memoizeImpl(id, dependencies, moduleFactory);
+            provideUnprovidedDependencies(id, onMemoizedAndProvided);
+        }
+
+        var doesXDependOnY = (function () {
+            // This function is used to detect circular dependency chains inside of provideUnprovidedDependencies.
+            // It recursively branches out from X's dependencies, and short-circuits to return false if it ends up at a module
+            // that has not yet been memoized (and thus whose dependencies are not available).
+
+            function doesXDependOnYRecursive(x, y, start) {
+                if (!isMemoizedImpl(x)) {
+                    // Short-cirtcuit if X has not been memoized and we thus don't know its dependencies.
+                    return false;
+                }
+
+                var dependencies = dependencyTracker.getDependenciesCopyFor(x);
+                var dependencyIds = dependencyTracker.transformToIdArray(dependencies, x);
+
+                // Recall that Array#some will return false if the array contains zero elements, so that is one end condition of the recursion.
+                return dependencyIds.some(function (dependencyId) {
+                    // If we have (via recursion) followed a circular dependency chain and ended up back where we started,
+                    // bail out of this branch of the recursion; X does not depend on X. Otherwise, if we ended up at Y, return true.
+                    // Finally, if we're not at Y (yet), recursively ask if this dependency of X itself depends on Y.
+                    return dependencyId !== start && (dependencyId === y || doesXDependOnYRecursive(dependencyId, y, start));
+                });
+            }
+
+            return function (x, y) {
+                return doesXDependOnYRecursive(x, y, x);
+            }
+        }());
+
+        function provideUnprovidedDependencies(id, onProvided) {
+            // This function is called when providing a module that has already been memoized.
+            // Even though it's been memoized, its dependencies could have been not provided, but now
+            // someone is asking to provide this module, so we need to provide its dependencies first.
+
+            var dependencies = dependencyTracker.getDependenciesCopyFor(id);
+            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
+
+            var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !doesXDependOnY(dependencyId, id); });
+            var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
+
+            var provideCallback = createCallbackAggregator(beingProvided.length + 1, onProvided);
+
+            beingProvided.forEach(function (dependencyBeingProvided) {
+                provideListeners.add(dependencyBeingProvided, provideCallback);
+            });
+            moduleObjectMemo.get(id).provide(needToProvide, provideCallback);
+        }
+        //#endregion
+
         function initializeMainModule(dependencies, moduleFactory) {
             moduleObjectFactory.setMainModuleExports({});
             memoizeAndProvideDependencies(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleMemoized() {
@@ -535,6 +546,11 @@
         }
 
         //#region Default implementations for overridable functions
+
+        // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
+        // and the callback for its <script /> tag's load event firing. Our listener (in provideImpl below) picks up values from here.
+        var scriptTagDeclareStorage = null;
+
         function declareImpl(dependencies, moduleFactory) {
             if (moduleFactory === undefined) {
                 moduleFactory = dependencies;
@@ -575,17 +591,10 @@
 
             var dependencyIds = dependencyTracker.transformToIdArray(dependencies, this.id);
 
-            var numberProvidedSoFar = 0;
-            function onDependencyProvided() {
-                if (++numberProvidedSoFar === dependencyIds.length) {
-                    onAllProvided();
-                }
-            }
+            var onDependencyProvided = createCallbackAggregator(dependencyIds.length, onAllProvided);
 
             // Do a first pass to fill in the providingIdSet, so that it's up-to-date in any recursive provide calls we make in the following loop.
-            dependencyIds.forEach(function (id) {
-                providingIdSet.add(id);
-            });
+            dependencyIds.forEach(providingIdSet.add);
 
             // NOTE: we don't split up the array (e.g. using filter) then separately perform each type of operation,
             // because execution of the loop body could change the memoization status of any given ID.
@@ -681,12 +690,6 @@
         };
 
         return {
-            resetOverridableMethods: function () {
-                NobleModule.prototype.declare = declareImpl;
-                NobleModule.prototype.eventually = eventuallyImpl;
-                NobleModule.prototype.load = loadImpl;
-                NobleModule.prototype.provide = provideImpl;
-            },
             create: function (id, dependencies) {
                 // Used to apply argument-validation decorators to NobleModule instances before passing the resulting objects
                 // to module factory functions. This allows module provider plug-ins to hook in by overriding
@@ -708,6 +711,21 @@
             },
             setMainModuleExports: function (exports) {
                 NobleModule.prototype.main = exports;
+            },
+            reset: function () {
+                providingIdSet.empty();
+                providedIdSet.empty();
+                provideListeners.empty();
+                scriptTagDeclareStorage = null;
+
+                // Reset the main module; now, the next call to module.declare will declare a new main module.
+                moduleObjectFactory.setMainModuleExports(null);
+            },
+            resetOverridableMethods: function () {
+                NobleModule.prototype.declare = declareImpl;
+                NobleModule.prototype.eventually = eventuallyImpl;
+                NobleModule.prototype.load = loadImpl;
+                NobleModule.prototype.provide = provideImpl;
             }
         };
     }());
@@ -749,18 +767,10 @@
         exportsMemo.empty();
         pendingDeclarations.empty();
 
-        provideListeners.empty();
-        providingIdSet.empty();
-        providedIdSet.empty();
-
+        moduleObjectFactory.reset();
         scriptLoader.reset();
         dependencyTracker.reset();
         
-        scriptTagDeclareStorage = null;
-
-        // Reset the main module; now, the next call to module.declare will declare a new main module.
-        moduleObjectFactory.setMainModuleExports(null);
-
         // If desired, reset any methods that might have been overriden by module provider plug-ins.
         if (!options.keepPluginOverrides) {
             moduleObjectFactory.resetOverridableMethods();
