@@ -125,7 +125,8 @@
     }
 
     var dependencyTracker = (function () {
-        var arraysById = createMap();
+        var dependencyArrays = createMap();
+        var dependencyIdArraysMemo = createMap();
 
         function getIdFromPath(path) {
             var idFragments = [];
@@ -206,19 +207,31 @@
         }
 
         function getDependenciesFor(id) {
-            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES : arraysById.get(id);
+            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES : dependencyArrays.get(id);
         }
 
         return {
             reset: function () {
-                arraysById.empty();
+                dependencyArrays.empty();
+                dependencyIdArraysMemo.empty();
             },
             setDependenciesFor: function (id, dependencies) {
                 // Note: this method is never called for id === EXTRA_MODULE_ENVIRONMENT_ID, so we don't need to handle that case
-                arraysById.set(id, dependencies);
+                dependencyArrays.set(id, dependencies);
             },
             getDependenciesCopyFor: function (id) {
                 return getDependenciesFor(id).slice();
+            },
+            getDependencyIdsFor: function (id) {
+                if (id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
+                    return EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES;
+                }
+
+                if (!dependencyIdArraysMemo.containsKey(id)) {
+                    dependencyIdArraysMemo.set(id, dependencyTracker.transformToIdArray(getDependenciesFor(id), id));
+                }
+
+                return dependencyIdArraysMemo.get(id);
             },
             isValidArray: function (dependencies) {
                 return dependencies.every(isValidDependencyArrayEntry);
@@ -392,7 +405,7 @@
             }
 
             if (debugOptions.warnAboutUndeclaredDependencies && originatingId !== EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
-                var dependencyIdsForDebugWarning = dependencyTracker.transformToIdArray(dependencyTracker.getDependenciesCopyFor(originatingId), originatingId);
+                var dependencyIdsForDebugWarning = dependencyTracker.getDependencyIdsFor(originatingId);
 
                 if (dependencyIdsForDebugWarning.indexOf(id) === -1) {
                     warn('The module with ID "' + id + '" was not specified in the dependency array for the "' + originatingId + '" module.');
@@ -501,8 +514,7 @@
                     return false;
                 }
 
-                var dependencies = dependencyTracker.getDependenciesCopyFor(x);
-                var dependencyIds = dependencyTracker.transformToIdArray(dependencies, x);
+                var dependencyIds = dependencyTracker.getDependencyIdsFor(x);
 
                 // Recall that Array#some will return false if the array contains zero elements, so that is one end condition of the recursion.
                 return dependencyIds.some(function (dependencyId) {
@@ -523,8 +535,7 @@
             // Even though it's been memoized, its dependencies could have been not provided, but now
             // someone is asking to provide this module, so we need to provide its dependencies first.
 
-            var dependencies = dependencyTracker.getDependenciesCopyFor(id);
-            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
+            var dependencyIds = dependencyTracker.getDependencyIdsFor(id);
 
             var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !doesXDependOnY(dependencyId, id); });
             var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
