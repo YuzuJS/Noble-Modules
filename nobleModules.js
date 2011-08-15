@@ -455,6 +455,10 @@
     //#endregion
 
     //#region Module namespace implementation
+    var providingIdSet = createSet();
+    var providedIdSet = createSet();
+    var provideListeners = createListenerCollection();
+
     function memoizeAndProvideDependencies(id, dependencies, moduleFactory, onMemoizedAndProvided) {
         // This function is called when a module is introduced via module.declare (including the main module).
 
@@ -462,33 +466,22 @@
         provideUnprovidedDependencies(id, onMemoizedAndProvided);
     }
 
-    var isProvided = (function () {
-        // Being provided is a much more complicated condition than simply being memoized:
-        // * For a module with zero dependencies, being provided is equivalent to being memoized.
-        // * For all other modules, being provided means that it is memoized and all of its dependencies are provided.
-        // Such a recursive description of the condition of course lends itself to a recursive algorithm:
-        function isProvidedRecursive(id, startingId, isDepthZero) {
-            if (!isMemoizedImpl(id)) {
+    var doesXDependOnY = (function () {
+        function doesXDependOnYRecursive(x, y, start) {
+            if (!isMemoizedImpl(x)) {
                 return false;
             }
 
-            // This trickery is necessary to handle the case of circular dependencies.
-            if (id === startingId && !isDepthZero) {
-                // If we get here, the starting module passed the above isMemoized check, and we've already gone
-                // through the cycle so all of its dependencies check out as well (up to this depth), so return true:
-                // we don't need to check the starting module's dependencies again.
-                return true;
-            }
+            var dependencies = dependencyTracker.getDependenciesCopyFor(x);
+            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, x);
 
-            var dependencies = dependencyTracker.getDependenciesCopyFor(id);
-            var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
-            return dependencyIds.every(function (dependencyId) {
-                return isProvidedRecursive(dependencyId, startingId, false);
+            return dependencyIds.some(function (dependencyId) {
+                return dependencyId !== start && (dependencyId === y || doesXDependOnYRecursive(dependencyId, y));
             });
         }
 
-        return function isProvided(id, startingId) {
-            return isProvidedRecursive(id, startingId, true);
+        return function (x, y) {
+            return doesXDependOnYRecursive(x, y, x);
         }
     }());
 
@@ -499,9 +492,22 @@
 
         var dependencies = dependencyTracker.getDependenciesCopyFor(id);
         var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
-        var idsToProvide = dependencyIds.filter(function (dependencyId) { return !isProvided(dependencyId, id); });
 
-        moduleObjectMemo.get(id).provide(idsToProvide, onProvided);
+        var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !doesXDependOnY(dependencyId, id); });
+        var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
+
+        var operationsCompleted = 0;
+        var operationsToComplete = beingProvided.length + 1;
+        function completeOperation() {
+            if (++operationsCompleted === operationsToComplete) {
+                onProvided();
+            }
+        }
+
+        beingProvided.forEach(function (dependencyBeingProvided) {
+            provideListeners.add(dependencyBeingProvided, completeOperation);
+        });
+        moduleObjectMemo.get(id).provide(needToProvide, completeOperation);
     }
 
     var moduleObjectFactory = (function () {
@@ -576,23 +582,35 @@
                 }
             }
 
+            // Do a first pass to fill in the providingIdSet, so that it's up-to-date in any recursive provide calls we make in the following loop.
+            dependencyIds.forEach(function (id) {
+                providingIdSet.add(id);
+            });
+
             // NOTE: we don't split up the array (e.g. using filter) then separately perform each type of operation,
             // because execution of the loop body could change the memoization status of any given ID.
             var that = this;
             dependencyIds.forEach(function (id) {
+                function onThisDependencyProvided() {
+                    providingIdSet.remove(id);
+                    providedIdSet.add(id);
+                    provideListeners.trigger(id);
+                    onDependencyProvided();
+                }
+
                 function onModuleFileLoaded() {
                     if (isMemoizedImpl(id)) {
                         // This case occurs if the system is told to provide a module twice in a row. The first call starts the loading process,
                         // and when finished, ends up in the next branch, calling memoizeAndProvideDependencies. The second call waits for the
                         // loading process to complete, and when it does so, ends up in this branch, since the first call already memoized the module.
-                        provideUnprovidedDependencies(id, onDependencyProvided);
+                        provideUnprovidedDependencies(id, onThisDependencyProvided);
                     } else if (scriptTagDeclareStorage) {
                         // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
                         var dependencies = scriptTagDeclareStorage.dependencies;
                         var moduleFactory = scriptTagDeclareStorage.moduleFactory;
                         scriptTagDeclareStorage = null;
 
-                        memoizeAndProvideDependencies(id, dependencies, moduleFactory, onDependencyProvided);
+                        memoizeAndProvideDependencies(id, dependencies, moduleFactory, onThisDependencyProvided);
                     } else {
                         // Since this code executes immediately after the file loads, we know that if the module wasn't memoized but
                         // scriptTagDeclareStorage is also null, then either:
@@ -601,7 +619,7 @@
                         // In both cases: BAD module author! BAD!
                         warn('Tried to load module with ID "' + id + '", but it did not correspond to a valid module file.');
 
-                        onDependencyProvided();
+                        onThisDependencyProvided();
                     }
                 }
 
@@ -612,7 +630,7 @@
                     // Note that we don't just unconditionally do that.load(id, onModuleFileLoaded) and count on the first branch in onModuleFileLoaded,
                     // (which does essentially the same thing) because we want to avoid calling into a possibly-third-party module.load.
 
-                    provideUnprovidedDependencies(id, onDependencyProvided);
+                    provideUnprovidedDependencies(id, onThisDependencyProvided);
                 } else {
                     that.load(id, onModuleFileLoaded);
                 }
@@ -730,8 +748,14 @@
         moduleObjectMemo.empty();
         exportsMemo.empty();
         pendingDeclarations.empty();
+
+        provideListeners.empty();
+        providingIdSet.empty();
+        providedIdSet.empty();
+
         scriptLoader.reset();
         dependencyTracker.reset();
+        
         scriptTagDeclareStorage = null;
 
         // Reset the main module; now, the next call to module.declare will declare a new main module.
