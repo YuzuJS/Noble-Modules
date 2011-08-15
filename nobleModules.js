@@ -491,7 +491,13 @@
             });
         }
 
-        //#region Module provision implementation
+        //#region Default implementations for overridable functions
+
+        // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
+        // and the callback for its <script /> tag's load event firing. Our listener (in provideImpl below) picks up values from here.
+        var scriptTagDeclareStorage = null;
+
+        //#region Module provision implementation helpers
         var providingIdSet = createSet();
         var providedIdSet = createSet();
         var provideListeners = createListenerCollection();
@@ -537,11 +543,13 @@
 
             var dependencyIds = dependencyTracker.getDependencyIdsFor(id);
 
+            // Figure out what is currently in the process of being provided that we need to wait on, and what we need to provide ourselves.
+            // In the former case, don't wait on dependencies in a circular dependency chain: for them, the provision that a module is not provided
+            // until all its dependencies are provided cannot be fulfilled.
             var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !doesXDependOnY(dependencyId, id); });
             var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
 
             var provideCallback = createCallbackAggregator(beingProvided.length + 1, onProvided);
-
             beingProvided.forEach(function (dependencyBeingProvided) {
                 provideListeners.add(dependencyBeingProvided, provideCallback);
             });
@@ -555,12 +563,6 @@
                 moduleObjectFactory.setMainModuleExports(globalRequire(MAIN_MODULE_ID));
             });
         }
-
-        //#region Default implementations for overridable functions
-
-        // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
-        // and the callback for its <script /> tag's load event firing. Our listener (in provideImpl below) picks up values from here.
-        var scriptTagDeclareStorage = null;
 
         function declareImpl(dependencies, moduleFactory) {
             if (moduleFactory === undefined) {
@@ -607,9 +609,7 @@
             // Do a first pass to fill in the providingIdSet, so that it's up-to-date in any recursive provide calls we make in the following loop.
             dependencyIds.forEach(providingIdSet.add);
 
-            // NOTE: we don't split up the array (e.g. using filter) then separately perform each type of operation,
-            // because execution of the loop body could change the memoization status of any given ID.
-            var that = this;
+            var load = this.load;
             dependencyIds.forEach(function (id) {
                 function onThisDependencyProvided() {
                     providingIdSet.remove(id);
@@ -647,12 +647,12 @@
                     // This is necessary for the case of modules introduced into the system via require.memoize, instead of
                     // module.declare. For more discussion see http://groups.google.com/group/commonjs/browse_thread/thread/53057f785c6f5ceb
 
-                    // Note that we don't just unconditionally do that.load(id, onModuleFileLoaded) and count on the first branch in onModuleFileLoaded,
-                    // (which does essentially the same thing) because we want to avoid calling into a possibly-third-party module.load.
+                    // Note that we don't just unconditionally do load(id, onModuleFileLoaded) and count on reaching the first branch in onModuleFileLoaded
+                    // (which does essentially the same thing), because we want to avoid calling into a possibly-third-party module.load.
 
                     provideUnprovidedDependencies(id, onThisDependencyProvided);
                 } else {
-                    that.load(id, onModuleFileLoaded);
+                    load(id, onModuleFileLoaded);
                 }
             });
         }
