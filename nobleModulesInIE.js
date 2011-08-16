@@ -13,7 +13,8 @@
     module.constructor.prototype.load = function (moduleIdentifier, onModuleLoaded) {
         var id = require.id(moduleIdentifier);
         var uri = require.uri(id);
-        if (!loadingMemo.hasOwnProperty(id)) {
+
+        if (!Object.prototype.hasOwnProperty.call(loadingMemo, id)) {
             loadingMemo[id] = jQuery.ajax({ url: uri, dataType: "text" });
         }
 
