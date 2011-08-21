@@ -41,7 +41,8 @@
     var warn = (global.console && global.console.warn) ? function (warning) { global.console.warn(warning); } : function () { };
 
     function getUriFromId(id) {
-        return id + MODULE_FILE_EXTENSION;
+        var prefix = mainModuleDir ? mainModuleDir + TERM_DELIMITER : "";
+        return prefix + id + MODULE_FILE_EXTENSION;
     }
 
     function createMap() {
@@ -158,7 +159,7 @@
 
         function getDirectoryPortion(moduleId) {
             if (moduleId === MAIN_MODULE_ID || moduleId === EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
-                return mainModuleDir;
+                return "";
             }
 
             var directoryPortion = moduleId.split(TERM_DELIMITER).slice(0, -1).join(TERM_DELIMITER);
@@ -177,7 +178,7 @@
             if (moduleIdentifier.indexOf(CURRENT_DIRECTORY + TERM_DELIMITER) === 0 || moduleIdentifier.indexOf(PARENT_DIRECTORY + TERM_DELIMITER) === 0) {
                 path = relativeModuleDir + TERM_DELIMITER + moduleIdentifier;
             } else {
-                path = mainModuleDir + TERM_DELIMITER + moduleIdentifier;
+                path = TERM_DELIMITER + moduleIdentifier;
             }
             return getIdFromPath(path);
         }

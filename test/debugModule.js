@@ -7,6 +7,17 @@ test("Debug module is provided to global require", function () {
     strictEqual(typeof debugModule, "object", "exports are an object");
 });
 
+test("Setting a nonstandard main module directory is reflected in require.uri (but not require.id)", function () {
+    var debugModule = require("nobleModules");
+
+    debugModule.reset({ mainModuleDirectory: "somewhere/else" });
+
+    strictEqual(require.uri("a/module"), "somewhere/else/a/module.js", "The URI returned from require.uri included the specified main module directory");
+    strictEqual(require.id("a/module"), "a/module", "The ID returned from require.id did not change on account of the main module directory");
+});
+
+
+
 asyncTest("By default, scripts are cached", function () {
     var debugModule = require("nobleModules");
 
