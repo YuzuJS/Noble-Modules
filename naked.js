@@ -30,11 +30,11 @@
         return "\n//@ sourceURL=" + uri;
     }
 
-    function makeSourceToEvalFor20(uri, rawSource) {
+    function makeSourceToEvalForWrapped(uri, rawSource) {
         return rawSource + makeSourceUrlString(uri);
     }
 
-    function makeSourceToEvalFor11(uri, rawSource) {
+    function makeSourceToEvalForNaked(uri, rawSource) {
         var dependencies = scrapeDependenciesFrom(rawSource);
 
         return "module.declare([" + dependencies.join(", ") + "], function (require, exports, module) {\n" + rawSource + "\n})" + makeSourceUrlString(uri);
@@ -44,9 +44,9 @@
         var sourceUrlEnding = "\n//@ sourceURL=" + uri;
 
         if (rawSource.match(declareRegExp)) {
-            eval(makeSourceToEvalFor20(uri, rawSource));
+            eval(makeSourceToEvalForWrapped(uri, rawSource));
         } else {
-            eval(makeSourceToEvalFor11(uri, rawSource));
+            eval(makeSourceToEvalForNaked(uri, rawSource));
         }
     }
 
