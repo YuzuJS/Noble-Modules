@@ -8,12 +8,13 @@
     var EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES = [];
 
     var MAIN_MODULE_ID = "";            // Browser environment: main module's identifier should be the empty string.
-    var DEFAULT_MAIN_MODULE_DIR = "";   // Browser environment: paths are relative to main module path, i.e. path of HTML file that does initial module.declare.
+    var DEFAULT_MAIN_MODULE_DIR = "";   // Browser environment: paths are relative to main module path, i.e. path of
+                                        // HTML file that does initial module.declare.
 
     var DEFAULT_DEBUG_OPTIONS = { disableCaching: false, warnAboutUndeclaredDependencies: false };
 
-    // Set via require("nobleModules").setDebugOptions(newOptions). Reset to default by require("nobleModules").reset().
-    // Or do both at once via require("nobleModules").reset({ withDebugOptions: newOptions }).
+    // Set via require("nobleModules").setDebugOptions(options). Reset to default by require("nobleModules").reset().
+    // Or do both at once via require("nobleModules").reset({ withDebugOptions: options }).
     var debugOptions;
 
     // Defaults to DEFAULT_MAIN_MODULE_DIR, but can be changed during a reset via
@@ -26,19 +27,22 @@
     // An id => object map giving each module's "module" variable that is passed to the factory function.
     var moduleObjectMemo = createMap();
 
-    // An id => { moduleFactory, dependencies, exports } map that has an entry when a module is currently memoized, but hasn't yet been
-    // required by anyone. Exports is added when module is initialized; it is same reference that is passed to the module factory function,
-    // and is stored here to prevent circular dependency recursion when multiple calls to require are made while initialization of the
-    // module is still in progress. Requiring a module will remove its entry from here and move the exports to exportsMemo.
+    // An id => { moduleFactory, dependencies, exports } map that has an entry when a module is currently memoized, 
+    // but hasn't yet been required by anyone. Exports is added when module is initialized; it is same reference that 
+    // is passed to the module factory function, and is stored here to prevent circular dependency recursion when 
+    // multiple calls to require are made while initialization of the module is still in progress. Requiring a module 
+    // will remove its entry from here and move the exports to exportsMemo.
     var pendingDeclarations = createMap();
 
-    // The global instances of require and module are stored here and returned in getters, so that we can use Object.defineProperties(global, ...)
-    // to prevent users from overwriting global.require and global.module, but still reset them ourselves in the reset function.
+    // The global instances of require and module are stored here and returned in getters, so that we can use 
+    // Object.defineProperties(global, ...) to prevent users from overwriting global.require and global.module, but 
+    // still reset them ourselves in the reset function.
     var globalRequire;
     var globalModule;
 
     ///#region Helper functions and objects
-    var warn = (global.console && global.console.warn) ? function (warning) { global.console.warn(warning); } : function () { };
+    var warn = (global.console && global.console.warn) ? function (warning) { global.console.warn(warning); }
+                                                       : function () { };
 
     function getUriFromId(id) {
         var prefix = mainModuleDir ? mainModuleDir + TERM_DELIMITER : "";
@@ -175,7 +179,8 @@
             }
 
             var path;
-            if (moduleIdentifier.indexOf(CURRENT_DIRECTORY + TERM_DELIMITER) === 0 || moduleIdentifier.indexOf(PARENT_DIRECTORY + TERM_DELIMITER) === 0) {
+            if (moduleIdentifier.indexOf(CURRENT_DIRECTORY + TERM_DELIMITER) === 0 ||
+                moduleIdentifier.indexOf(PARENT_DIRECTORY + TERM_DELIMITER) === 0) {
                 path = relativeModuleDir + TERM_DELIMITER + moduleIdentifier;
             } else {
                 path = TERM_DELIMITER + moduleIdentifier;
@@ -211,7 +216,8 @@
         }
 
         function getDependenciesFor(id) {
-            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES : dependencyArrays.get(id);
+            return id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID ? EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES
+                                                             : dependencyArrays.get(id);
         }
 
         return {
@@ -220,7 +226,8 @@
                 dependencyIdArraysMemo.empty();
             },
             setDependenciesFor: function (id, dependencies) {
-                // Note: this method is never called for id === EXTRA_MODULE_ENVIRONMENT_ID, so we don't need to handle that case
+                // Note: this method is never called for id === EXTRA_MODULE_ENVIRONMENT_ID,
+                // so we don't need to handle that case
                 dependencyArrays.set(id, dependencies);
             },
             getDependenciesCopyFor: function (id) {
@@ -264,7 +271,8 @@
                 var moduleDir = getDirectoryPortion(baseModuleId);
 
                 var labelsToIds = makeLabelsToIdsMap(moduleDir, getDependenciesFor(baseModuleId));
-                return labelsToIds.containsKey(identifier) ? labelsToIds.get(identifier) : getIdFromStringIdentifier(moduleDir, identifier);
+                return labelsToIds.containsKey(identifier) ? labelsToIds.get(identifier)
+                                                           : getIdFromStringIdentifier(moduleDir, identifier);
             }
         };
     }());
@@ -274,7 +282,8 @@
         var loadedUriSet = createSet();
         var loadListeners = createListenerCollection();
 
-        // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, we can remove them.
+        // An array of DOM elements for the <script /> tags we insert, so that when we reset the module loader, 
+        // we can remove them.
         var scriptTagEls = [];
 
         return {
@@ -316,8 +325,9 @@
                 el.addEventListener("load", onLoadedOrErrored, false);
                 el.addEventListener("error", onLoadedOrErrored, false);
                     
-                // If specified, we want to prevent caching, so append a timestamp to the URI. Separate it with underscores so that when
-                // debugging you can visually separate the filename (which you care about) from the timestamp (which you don't care about).
+                // If specified, we want to prevent caching, so append a timestamp to the URI. Separate it with 
+                // underscores so that when debugging you can visually separate the filename (which you care about) 
+                // from the timestamp (which you don't care about).
                 el.src = debugOptions.disableCaching ? uri + "?___________________________________" + Date.now() : uri;
 
                 document.head.appendChild(el);
@@ -335,22 +345,25 @@
     function memoizeImpl(id, dependencies, moduleFactory) {
         pendingDeclarations.set(id, { moduleFactory: moduleFactory, dependencies: dependencies });
 
-        // Update our dependency array so that calls to the corresponding require know about any new labels this memoize call introduced.
+        // Update our dependency array so that calls to the corresponding require know about any new labels this 
+        // memoize call introduced.
         dependencyTracker.setDependenciesFor(id, dependencies);
 
-        // Create and store the module object for this module so that future code can use it to e.g. provide modules with this module as the base.
+        // Create and store the module object for this module so that future code can use it to e.g. provide modules 
+        // with this module as the base.
         moduleObjectMemo.set(id, moduleObjectFactory.create(id, dependencies));
     }
 
     function initializeModule(id) {
         // If we already set an exports object in pendingDeclarations, then we are in a circular dependency situation.
-        // Example: in initializeModule("a"), we do pendingDeclarations.get("a").exports = {}, then call moduleFactoryA, which called require("b"),
-        // which called initializeModule("b"), which executed moduleFactoryB, which called require("a"), which called initializeModule("a") again,
-        // which is where we're at now.
+        // Example: in initializeModule("a"), we do pendingDeclarations.get("a").exports = {}, then call 
+        // moduleFactoryA, which called require("b"), which called initializeModule("b"), which executed 
+        // moduleFactoryB, which called require("a"), which called initializeModule("a") again, which is where we're 
+        // at now.
         if (pendingDeclarations.get(id).exports) {
-            // In that case, just use the previously-set exports; we might be only partially initialized, but that's the price you pay
-            // for having circular dependencies. And, the caller still gets a reference to the exports, which will be updated as we finish
-            // initialize the modules in the circle.
+            // In that case, just use the previously-set exports; we might be only partially initialized, but that's 
+            // the price you pay for having circular dependencies. And, the caller still gets a reference to the 
+            // exports, which will be updated when we finish initializing the modules in the circle.
             exportsMemo.set(id, pendingDeclarations.get(id).exports);
             return;
         }
@@ -361,8 +374,9 @@
         // Create a context-aware require to pass in to moduleFactory.
         var require = requireFactory(id, dependencies);
 
-        // Get or create a module object to pass in to moduleFactory. If the default implementation of module.provide is used, or the overriden
-        // implementation uses require.memoize, moduleObjectMemo will have it; otherwise, we'll need to create a new copy.
+        // Get or create a module object to pass in to moduleFactory. If the default implementation of module.provide 
+        // is used, or the overriden implementation uses require.memoize, moduleObjectMemo will have it; otherwise, 
+        // we'll need to create a new copy.
         var module = null;
         if (id === EXTRA_MODULE_ENVIRONMENT_MODULE_ID) {
             module = globalModule;
@@ -373,19 +387,22 @@
             module = moduleObjectMemo.get(id);
         }
 
-        // Create an empty exports to pass in to moduleFactory, and keep it in pendingDeclarations under id for circular reference tracking as above.
+        // Create an empty exports to pass in to moduleFactory, and keep it in pendingDeclarations under id for 
+        // circular reference tracking as explained above.
         var exports = pendingDeclarations.get(id).exports = {};
 
         var factoryResult = moduleFactory(require, exports, module);
 
-        // If the moduleFactory initiated a circular require chain (see above), its exports will get stored in exportsMemo under id.
-        // But if those exports are alternate exports, we won't be able to guarantee that we hand out the same exports reference to everyone,
-        // so we need to throw an error.
+        // If the moduleFactory initiated a circular require chain (see above), its exports will get stored in 
+        // exportsMemo under id. But if those exports are alternate exports, we won't be able to guarantee that we 
+        // hand out the same exports reference to everyone, so we need to throw an error.
         if (exportsMemo.containsKey(id) && exportsMemo.get(id) !== exports) {
-            throw new Error('Module "' + id + '" contains circular dependencies that return alternate exports instead of using the exports object.');
+            throw new Error('Module "' + id + '" contains circular dependencies that return alternate exports '
+                          + 'instead of using the exports object.');
         }
 
-        // If the module does not return anything, use our exports object; if it does, its exported API is the factory's returned result.
+        // If the module does not return anything, use our exports object; if it does, its exported API is the
+        // factory's returned result.
         exportsMemo.set(id, factoryResult === undefined ? exports : factoryResult);
 
         // Now that the exportsMemo has an entry for this ID, remove the pendingDeclarations entry.
@@ -412,7 +429,8 @@
                 var dependencyIdsForDebugWarning = dependencyTracker.getDependencyIdsFor(originatingId);
 
                 if (dependencyIdsForDebugWarning.indexOf(id) === -1) {
-                    warn('The module with ID "' + id + '" was not specified in the dependency array for the "' + originatingId + '" module.');
+                    warn('The module with ID "' + id + '" was not specified in the dependency array for the "'
+                       + originatingId + '" module.');
                 }
             }
 
@@ -497,8 +515,9 @@
 
         //#region Default implementations for overridable functions
 
-        // An object containing { moduleFactory, dependencies } for the brief period between module.declare being called (in a module's file),
-        // and the callback for its <script /> tag's load event firing. Our listener (in provideImpl below) picks up values from here.
+        // An object containing { moduleFactory, dependencies } for the brief period between module.declare being 
+        // called (in a module's file), and the callback for its <script /> tag's load event firing. Our listener (in 
+        // provideImpl below) picks up values from here.
         var scriptTagDeclareStorage = null;
 
         //#region Module provision implementation helpers
@@ -512,7 +531,7 @@
             return {
                 recordAsWaitingOn: function (beingProvided, waiter) {
                     if (beingProvided === waiter) {
-                        // Take care of the case where the below recursion ends up degenerately recording A depends on A.
+                        // Bail out when the below recursion ends up degenerately recording A depends on A.
                         return;
                     }
 
@@ -522,10 +541,12 @@
                     }
                     waitingForToWaiters.get(beingProvided).add(waiter);
 
-                    // If other modules are waiting on waiter, we need to note that they are now also waiting on beingProvided.
+                    // If other modules are waiting on waiter, we need to note that they are now also waiting on 
+                    // beingProvided.
                     if (waitingForToWaiters.containsKey(waiter)) {
                         waitingForToWaiters.get(waiter).values().forEach(function (waitingOnWaiter) {
-                            if (!waitingForToWaiters.containsKey(beingProvided) || !waitingForToWaiters.get(beingProvided).contains(waitingOnWaiter)) {
+                            if (!waitingForToWaiters.containsKey(beingProvided) ||
+                                !waitingForToWaiters.get(beingProvided).contains(waitingOnWaiter)) {
                                 provisionWaitingTracker.recordAsWaitingOn(beingProvided, waitingOnWaiter);
                             }
                         });
@@ -534,13 +555,15 @@
                     // And if beingProvided is being waited on by other modules, we need to note that waiter
                     // is also waiting on those modules in addition to just beingProvided itself.
                     waitingForToWaiters.keys().forEach(function (key) {
-                        if (waitingForToWaiters.get(key).contains(beingProvided) && !waitingForToWaiters.get(key).contains(waiter)) {
+                        if (waitingForToWaiters.get(key).contains(beingProvided) &&
+                            !waitingForToWaiters.get(key).contains(waiter)) {
                             provisionWaitingTracker.recordAsWaitingOn(key, waiter);
                         }
                     });
                 },
                 isWaitingOn: function (beingProvided, waiter) {
-                    return waitingForToWaiters.containsKey(beingProvided) && waitingForToWaiters.get(beingProvided).contains(waiter);
+                    return waitingForToWaiters.containsKey(beingProvided) &&
+                           waitingForToWaiters.get(beingProvided).contains(waiter);
                 },
                 onProvided: function (isNowProvided) {
                     waitingForToWaiters.remove(isNowProvided);
@@ -554,12 +577,17 @@
             // Even though it's been memoized, its dependencies could have been not provided, but now
             // someone is asking to provide this module, so we need to provide its dependencies first.
 
-            // Figure out what is currently in the process of being provided that we need to wait on, and what we need to provide ourselves.
-            // In the former case, don't wait on dependencies in a circular dependency chain: for them, the provision that a module is not provided
-            // until all its dependencies are provided cannot be fulfilled.
+            // Figure out what is currently in the process of being provided that we need to wait on, and what we need 
+            // to provide ourselves. In the former case, don't wait on dependencies in a circular dependency chain: 
+            // for them, the provision that a module is not provided until all its dependencies are provided cannot be 
+            // fulfilled.
             var dependencyIds = dependencyTracker.getDependencyIdsFor(id);
-            var beingProvided = dependencyIds.filter(function (dependencyId) { return providingIdSet.contains(dependencyId) && !provisionWaitingTracker.isWaitingOn(id, dependencyId); });
-            var needToProvide = dependencyIds.filter(function (dependencyId) { return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId); });
+            var beingProvided = dependencyIds.filter(function (dependencyId) {
+                return providingIdSet.contains(dependencyId) && !provisionWaitingTracker.isWaitingOn(id, dependencyId);
+            });
+            var needToProvide = dependencyIds.filter(function (dependencyId) {
+                return !providingIdSet.contains(dependencyId) && !providedIdSet.contains(dependencyId);
+            });
 
             var provideCallback = createCallbackAggregator(beingProvided.length + 1, onProvided);
             beingProvided.forEach(function (dependencyBeingProvided) {
@@ -579,7 +607,8 @@
 
         function initializeMainModule(dependencies, moduleFactory) {
             moduleObjectFactory.setMainModuleExports({});
-            memoizeAndProvideDependencies(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleMemoized() {
+            memoizeAndProvideDependencies(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleReady() {
+                // Calling require will do the actual initialization.
                 moduleObjectFactory.setMainModuleExports(globalRequire(MAIN_MODULE_ID));
             });
         }
@@ -594,7 +623,8 @@
                 // The first time declare is called, there is no main module, so make this one the main module.
                 initializeMainModule(dependencies, moduleFactory);
             } else {
-                // Otherwise we're inside a <script />-inserted module, so put things in scriptTagDeclareStorage for module.load to play with.
+                // Otherwise we're inside a <script />-inserted module, so put things in scriptTagDeclareStorage for 
+                // module.load to play with.
                 scriptTagDeclareStorage = { moduleFactory: moduleFactory, dependencies: dependencies };
             }
         }
@@ -627,7 +657,8 @@
             var dependencyIds = dependencyTracker.transformToIdArray(dependencies, id);
             var onDependencyProvided = createCallbackAggregator(dependencyIds.length, onAllProvided);
 
-            // Do a first pass to fill in the providingIdSet, so that it's up-to-date in any recursive provide calls we make in the following loop.
+            // Do a first pass to fill in the providingIdSet, so that it's up-to-date in any recursive provide calls 
+            // we make in the following loop.
             dependencyIds.forEach(providingIdSet.add);
 
             // Similarly, let the provisionWaitingTracker know that id will be waiting on each of these dependencies.
@@ -647,35 +678,43 @@
 
                 function onModuleFileLoaded() {
                     if (isMemoizedImpl(id)) {
-                        // This case occurs if the system is told to provide a module twice in a row. The first call starts the loading process,
-                        // and when finished, ends up in the next branch, calling memoizeAndProvideDependencies. The second call waits for the
-                        // loading process to complete, and when it does so, ends up in this branch, since the first call already memoized the module.
+                        // This case occurs if the system is told to provide a module twice in a row. The first call 
+                        // starts the loading process, and when finished, ends up in the next branch, calling 
+                        // memoizeAndProvideDependencies. The second call waits for the loading process to complete, 
+                        // and when it does, ends up in this branch, since the first call already memoized the module.
                         provideUnprovidedDependencies(id, onThisDependencyProvided);
                     } else if (scriptTagDeclareStorage) {
-                        // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there for us by module.declare.
+                        // Grab the dependencies and factory from scriptTagDeclareStorage; they were kindly left there 
+                        // for us by module.declare.
                         var dependencies = scriptTagDeclareStorage.dependencies;
                         var moduleFactory = scriptTagDeclareStorage.moduleFactory;
                         scriptTagDeclareStorage = null;
 
                         memoizeAndProvideDependencies(id, dependencies, moduleFactory, onThisDependencyProvided);
                     } else {
-                        // Since this code executes immediately after the file loads, we know that if the module wasn't memoized but
-                        // scriptTagDeclareStorage is also null, then either:
-                        // (a) module.declare must never have been called in the file, and thus never filled scriptTagDeclareStorage for us, or
-                        // (b) other module-related things happened after module.declare inside the file.
-                        // In both cases: BAD module author! BAD!
-                        warn('Tried to load module with ID "' + id + '", but it did not correspond to a valid module file.');
+                        // Since this code executes immediately after the file loads, we know that if the module 
+                        // wasn't memoized but scriptTagDeclareStorage is also null, then either:
+                        // (a) The file didn't exist or failed to load, resulting in the callback being called without 
+                        //     the module successfully loading.
+                        // (b) module.declare must never have been called in the file, and thus never filled 
+                        //     scriptTagDeclareStorage for us; or
+                        // (c) other module-related things happened after module.declare inside the file.
+                        // In case (a), we need to let the user know. In cases (b) and (c): BAD module author! BAD!
+                        warn('Tried to load module with ID "' + id
+                           + '", but it did not correspond to a valid module file.');
 
                         onThisDependencyProvided();
                     }
                 }
 
                 if (isMemoizedImpl(id)) {
-                    // This is necessary for the case of modules introduced into the system via require.memoize, instead of
-                    // module.declare. For more discussion see http://groups.google.com/group/commonjs/browse_thread/thread/53057f785c6f5ceb
+                    // This is necessary for the case of modules introduced into the system via require.memoize, 
+                    // instead of module.declare. For more discussion see 
+                    // http://groups.google.com/group/commonjs/browse_thread/thread/53057f785c6f5ceb
 
-                    // Note that we don't just unconditionally do load(id, onModuleFileLoaded) and count on reaching the first branch in onModuleFileLoaded
-                    // (which does essentially the same thing), because we want to avoid calling into a possibly-third-party module.load.
+                    // Note that we don't just unconditionally do load(id, onModuleFileLoaded) and count on reaching 
+                    // the first branch in onModuleFileLoaded (which does essentially the same thing), because we want 
+                    // to avoid calling into a possibly-third-party module.load.
 
                     provideUnprovidedDependencies(id, onThisDependencyProvided);
                 } else {
@@ -685,7 +724,7 @@
         }
         //#endregion
 
-        // These argument-validation decorators are applied to NobleModule instances in moduleObjectFactory.create() below.
+        // These argument-validation decorators are applied to NobleModule instances in moduleObjectFactory.create().
         var argumentValidationFunctions = {
             declare: function (dependencies, moduleFactory) {
                 if (moduleFactory === undefined) {
@@ -729,11 +768,11 @@
 
         return {
             create: function (id, dependencies) {
-                // Used to apply argument-validation decorators to NobleModule instances before passing the resulting objects
-                // to module factory functions. This allows module provider plug-ins to hook in by overriding
-                // module.constructor.prototype, but still benefit from argument validation without having to do it themselves.
-                // Also binds these methods to the module object, so you can do var load = module.load and use it without
-                // "this"-related problems.
+                // Used to apply argument-validation decorators to NobleModule instances before passing the resulting 
+                // objects to module factory functions. This allows module provider plug-ins to hook in by overriding
+                // module.constructor.prototype, but still benefit from argument validation without having to do it 
+                // themselves. Also binds these methods to the module object, so you can do var load = module.load and 
+                // use it without "this"-related problems.
 
                 var moduleObject = new NobleModule(id, dependencies);
 
@@ -792,7 +831,11 @@
 
     function reset(options) {
         if (typeof options !== "object" || options === null) {
-            options = { mainModuleDirectory: DEFAULT_MAIN_MODULE_DIR, withDebugOptions: DEFAULT_DEBUG_OPTIONS, keepPluginOverrides: false };
+            options = {
+                mainModuleDirectory: DEFAULT_MAIN_MODULE_DIR,
+                withDebugOptions: DEFAULT_DEBUG_OPTIONS,
+                keepPluginOverrides: false
+            };
         }
 
         mainModuleDir = typeof options.mainModuleDirectory === "string"
@@ -815,9 +858,11 @@
             moduleObjectFactory.resetOverridableMethods();
         }
 
-        // Reset the global require and module variables that we return from the global.require and global.module getters.
-        globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
-        globalModule = moduleObjectFactory.create(EXTRA_MODULE_ENVIRONMENT_MODULE_ID, EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
+        // Reset the global require and module variables that we return from the global.require/global.module getters.
+        globalRequire = requireFactory(EXTRA_MODULE_ENVIRONMENT_MODULE_ID,
+                                       EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
+        globalModule = moduleObjectFactory.create(EXTRA_MODULE_ENVIRONMENT_MODULE_ID,
+                                                  EXTRA_MODULE_ENVIRONMENT_MODULE_DEPENDENCIES);
 
         // Provide the debug module.
         globalRequire.memoize("nobleModules", [], function () { return debugModule; });
@@ -832,9 +877,10 @@
         // Since the global require and module should not be configurable, getters are the only way to allow us to
         // change their values in reset(), since a non-configurable data descriptor cannot be re-defined.
 
-        // Note that we explicitly specify false for configurable, to account for the case where e.g. a previous script
-        // did global.module = {}. Then the below code would be a *re*definition of global.module, and if we didn't specify,
-        // we would inherit the implied configurable: true from the previous script's definition of global.module.
+        // Note that we explicitly specify false for configurable, to account for the case where e.g. a previous
+        // script did global.module = {}. Then the below code would be a *re*definition of global.module, and if we 
+        // didn't specify, we would inherit the implied configurable: true from the previous script's definition of 
+        // global.module.
         Object.defineProperties(global, {
             require: {
                 get: function () { return globalRequire; },

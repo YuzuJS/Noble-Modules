@@ -37,14 +37,14 @@ Plug-ins and Other Extras
 
 We bundle two module provider plug-ins with Noble Modules:
 
- * **`naked.js`** allows the use of "naked" module files, i.e. those consisting only of module code sections (in the
+ * `naked.js` allows the use of "naked" module files, i.e. those consisting only of module code sections (in the
    style of Modules/1.1). It uses `XMLHTTPRequest` (via jQuery) to load the file contents, parses out `require`
    calls, and uses them to wrap the module code section inside a Modules/2.0 `module.declare` call before using
    `eval` to introduce the module into the environment. It uses [the `//@ sourceURL` annotation][9] for easier
    debugging.
- * **`nobleModulesInIE.js`** allows Noble Modules to work in Internet Explorer by using the same technique, although 
+ * `nobleModulesInIE.js` allows Noble Modules to work in Internet Explorer by using the same technique, although 
    without the `require`-parsing and wrapper construction. This allows the core `nobleModules.js` code to stay clean 
-   for those who do not need to support Internet Explorer's degenerate `<script />`-loading implementation.
+   for those who do not need to support Internet Explorer's degenerate script-loading implementation.
 
 Additionally, Noble Modules automatically memoizes a `nobleModules` module which has several methods useful for
 debugging or other special environments:
