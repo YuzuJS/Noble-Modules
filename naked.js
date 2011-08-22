@@ -1,4 +1,6 @@
 (function () {
+    // NOTE: requires jQuery; we didn't want to implement XHR and promises ourselves.
+
     if (!module.constructor.prototype.load) {
         throw new Error("The Modules/2.0 implementation in use does not support module provider plug-ins.");
     }
