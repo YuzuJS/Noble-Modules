@@ -43,8 +43,6 @@
     }
 
     function evalModule(rawSource, uri) {
-        var sourceUrlEnding = "\n//@ sourceURL=" + uri;
-
         if (rawSource.match(declareRegExp)) {
             eval(makeSourceToEvalForWrapped(uri, rawSource));
         } else {
