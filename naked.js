@@ -1,4 +1,9 @@
-(function () {
+/* naked.js
+ *
+ * Copyright (c) 2011 Barnesandnoble.com, llc
+ * Released under MIT license (see https://github.com/NobleJS/Noble-Modules/blob/master/MIT-LICENSE.txt)
+ */
+ (function () {
     // NOTE: requires jQuery; we didn't want to implement XHR and promises ourselves.
 
     if (!module.constructor.prototype.load) {
