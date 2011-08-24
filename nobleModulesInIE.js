@@ -1,4 +1,11 @@
-(function () {
+/* nobleModulesInIE.js
+ *
+ * A CommonJS Modules/2.0 implementation
+ *
+ * Copyright (c) 2011 Barnesandnoble.com, llc
+ * Released under MIT license (see https://github.com/NobleJS/Noble-Modules/blob/master/MIT-LICENSE.txt)
+ */
+ (function () {
     // NOTE: requires jQuery; we didn't want to implement XHR and promises ourselves.
 
     // We detect IE by the presence of onreadystatechange on script, assuming that if IE ever removes this,
