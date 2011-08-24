@@ -2,6 +2,9 @@
 =============
 **A NobleJS production**
 
+Copyright (c) 2011 Barnesandnoble.com, llc
+Released under [MIT license][19]
+
 
 Introduction
 ------------
@@ -108,3 +111,4 @@ JavaScript module system we could use to build our product.
 [16]: http://www.paulbouzakis.com/
 [17]: http://domenicdenicola.com
 [18]: http://blog.donavon.com/
+[19]: https://github.com/NobleJS/Noble-Modules/blob/master/MIT-LICENSE.txt
