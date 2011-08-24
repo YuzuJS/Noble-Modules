@@ -1,7 +1,5 @@
 /* nobleModulesInIE.js
  *
- * A CommonJS Modules/2.0 implementation
- *
  * Copyright (c) 2011 Barnesandnoble.com, llc
  * Released under MIT license (see https://github.com/NobleJS/Noble-Modules/blob/master/MIT-LICENSE.txt)
  */
