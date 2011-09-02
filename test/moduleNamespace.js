@@ -2,8 +2,8 @@ newTestSet("module namespace");
 
 asyncTest("declare: accepts labeled dependency objects and correctly provides them to factory function's require", function () {
     module.declare([{ mathLabel: "demos/math" }], function (require, exports, module) {
-        strictEqual(require.id("mathLabel"), "demos/math", "The label was translated into the correct ID when using require.id");
-        strictEqual(require.uri("mathLabel"), "demos/math.js", "The label was translated into the correct URI when using require.uri");
+        strictEqual(require.id("mathLabel"), require.id("demos/math"), "The label was translated into the correct ID when using require.id");
+        strictEqual(require.uri("mathLabel"), require.uri("demos/math"), "The label was translated into the correct URI when using require.uri");
 
         var math = require("mathLabel");
         strictEqual(typeof math, "object", 'demos/math module, labeled as "mathLabel," has been provided');
@@ -59,7 +59,7 @@ asyncModuleTest("load: when called twice in a row for the same nonextant module,
 
 asyncModuleTest("load: does not memoize the loaded module", function (require, exports, module) {
     module.load("demos/math", function onModuleLoaded() {
-        strictEqual(require.isMemoized("demos/math"), false, "The module was not memoized");
+        strictEqual(require.isMemoized(require.id("demos/math")), false, "The module was not memoized");
         start();
     });
 });
@@ -73,15 +73,15 @@ asyncModuleTest("provide: passing an empty dependency array still results in the
 
 asyncModuleTest("provide: when passing multiple dependencies, all of them are memoized by the time the callback is called", function (require, exports, module) {
     module.provide(["demos/area", "demos/perimeter"], function onModulesProvided() {
-        strictEqual(require.isMemoized("demos/area"), true, "First dependency is memoized");
-        strictEqual(require.isMemoized("demos/perimeter"), true, "Second dependency is memoized");
+        strictEqual(require.isMemoized(require.id("demos/area")), true, "First dependency is memoized");
+        strictEqual(require.isMemoized(require.id("demos/perimeter")), true, "Second dependency is memoized");
         start();
     });
 });
 
 asyncModuleTest("provide: understands relative identifiers", function (require, exports, module) {
     module.provide(["demos/../demos/math"], function onModulesProvided() {
-        strictEqual(require.isMemoized("demos/math"), true, "It figured out demos/../demos");
+        strictEqual(require.isMemoized(require.id("demos/math")), true, "It figured out demos/../demos");
         start();
     });
 });
@@ -89,8 +89,8 @@ asyncModuleTest("provide: understands relative identifiers", function (require, 
 asyncModuleTest("provide: still calls the callback even if one of the modules in the dependencies array doesn't exist", function (require, exports, module) {
     module.provide(["asdf", "demos/math"], function onModulesProvided() {
         ok(true, "Callback still got called");
-        strictEqual(require.isMemoized("demos/math"), true, "The extant module is memoized");
-        strictEqual(require.isMemoized("asdf"), false, "The nonextant module is not memoized");
+        strictEqual(require.isMemoized(require.id("demos/math")), true, "The extant module is memoized");
+        strictEqual(require.isMemoized(require.id("asdf")), false, "The nonextant module is not memoized");
 
         start();
     });
@@ -124,8 +124,8 @@ asyncModuleTest("provide: providing an extant module then a nonextant module doe
         module.provide(["asdf"], function () {
             ok(true, "Callback for nonextant module reached");
 
-            strictEqual(require.isMemoized("demos/math"), true, "The extant module is memoized");
-            strictEqual(require.isMemoized("asdf"), false, "The nonextant module is not memoized");
+            strictEqual(require.isMemoized(require.id("demos/math")), true, "The extant module is memoized");
+            strictEqual(require.isMemoized(require.id("asdf")), false, "The nonextant module is not memoized");
 
             start();
         });

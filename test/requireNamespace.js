@@ -1,13 +1,9 @@
 newTestSet("require namespace");
 
-moduleTest("id: when given an absolute ID, returns it directly", function (require, exports, module) {
-    strictEqual(require.id("demos/math"), "demos/math", "It returned what it was given for the case with no ..s or .s");
-});
-
 moduleTest("id: canonicalizes relative identifiers", function (require, exports, module) {
-    strictEqual(require.id("./demos/math"), "demos/math", "It figured out ./ relative to the main module");
-    strictEqual(require.id("demos/../demos/math"), "demos/math", "It figured out demos/../demos");
-    strictEqual(require.id("demos/../demos/circular/../area"), "demos/area", "It figured out an identifier with two ../s");
+    strictEqual(require.id("./demos/math"), require.id("demos/math"), "It figured out ./ relative to the main module");
+    strictEqual(require.id("demos/../demos/math"), require.id("demos/math"), "It figured out demos/../demos");
+    strictEqual(require.id("demos/../demos/circular/../area"), require.id("demos/area"), "It figured out an identifier with two ../s");
 });
 
 moduleTest("uri: turns an absolute ID into the corresponding URI", function (require, exports, module) {
@@ -29,26 +25,26 @@ moduleTest("memoize: throws an error when trying to memoize a module that is alr
 });
 
 moduleTest("memoize: makes the memoized module available to require", function (require, exports, module) {
-    require.memoize("please/be/memoized", [], function (require, exports, module) { exports.hi = "hello"; });
+    require.memoize(require.id("please/be/memoized"), [], function (require, exports, module) { exports.hi = "hello"; });
 
     var memoized = require("please/be/memoized");
     deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
 });
 
 moduleTest("memoize: can be used to memoize dependencies of memoized modules", function (require, exports, module) {
-    require.memoize("memoizing/dependent", ["memoizing/dependency"], function (require, exports, module) {
+    require.memoize(require.id("memoizing/dependent"), ["memoizing/dependency"], function (require, exports, module) {
         var dependency = require("memoizing/dependency");
 
         exports.greeting = dependency.hi;
     });
-    require.memoize("memoizing/dependency", [], function (require, exports, module) { exports.hi = "hello"; });
+    require.memoize(require.id("memoizing/dependency"), [], function (require, exports, module) { exports.hi = "hello"; });
 
     var dependent = require("memoizing/dependent");
     deepEqual(dependent, { greeting: "hello" }, "The dependent module was memoized");
 });
 
 moduleTest('memoize: works even for a module named "hasOwnProperty"', function (require, exports, module) {
-    require.memoize("hasOwnProperty", [], function (require, exports, module) { exports.hi = "hello"; });
+    require.memoize(require.id("hasOwnProperty"), [], function (require, exports, module) { exports.hi = "hello"; });
 
     var memoized = require("hasOwnProperty");
     deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
