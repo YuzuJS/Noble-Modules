@@ -22,20 +22,11 @@
     global.asyncModuleTest = makeModuleTestBasedOn(global.asyncTest);
 
     global.newTestSet = function (name) {
-        /// <summary>Wraps QUnit.module, passing it the same lifecycle every time (namely a setup that resets the module loader),
-        /// and makes things clearer so that the term "module" is not overloaded as much.</summary>
+        // Wraps QUnit.module, passing it global.moduleTestsLifecycle (which is specific to the module system under
+        // test, but should generally reset the module system in teardown). Helps make things clearer in that the 
+        // term "module" is not overloaded as much.
 
-        QUnit.module(
-            name,
-            {
-                setup: function () {
-                    global.require("nobleModules").setDebugOptions({ disableCaching: true });
-                },
-                teardown: function () {
-                    global.require("nobleModules").reset({ keepPluginOverrides: true });
-                }
-            }
-        );
+        QUnit.module(name, global.moduleTestsLifecycle);
     };
 }(this));
 
@@ -87,13 +78,13 @@
             if (error instanceof TypeError) {
                 QUnit.ok(true, "A TypeError was thrown while trying to add a property to " + objectName);
             } else {
-                throw Error;
+                throw error;
             }
         }
     };
 }(this));
 
-(function argumentValidationAssertions(global, undefined) {
+(function argumentValidationAssertion(global, undefined) {
     // We only support argument validation of these types, for now.
     var representativesOfTypes = {
         "Function": function () { },
@@ -173,4 +164,4 @@
             assertArgumentValidated(withOtherParamsFilledValidly, type, name);
         });
     };
-} (this));
+}(this));
