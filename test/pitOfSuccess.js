@@ -1,6 +1,12 @@
 newTestSet("Pit of success");
 
-test("Extra-module environment require: cannot mess with", function () {
+moduleTest("Unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
+    strictEqual(module.uri, undefined, "module.uri is not defined");
+    strictEqual(require.paths, undefined, "require.paths is not defined");
+    strictEqual(require.main, undefined, "require.main is not defined");
+});
+
+ test("Extra-module environment require: cannot mess with", function () {
     assertNotWritable(function () { return require; }, function () { require = "blah"; }, "Global require");
     assertNotConfigurable(function () { return require; }, function () { delete require; }, "Global require");
     assertNotExtensible(require, "Global require");
@@ -67,8 +73,46 @@ moduleTest("require.uri: validates its argument", function (require, exports, mo
     assertArgumentsValidated(require.uri, { moduleIdentifier: String });
 });
 
-moduleTest("Unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
-    strictEqual(module.uri, undefined, "module.uri is not defined");
-    strictEqual(require.paths, undefined, "require.paths is not defined");
-    strictEqual(require.main, undefined, "require.main is not defined");
+test("Overriden load: still has its arguments validated, without the plug-in author having to do so specifically", function () {
+    var originalModuleLoad = module.constructor.prototype.load;
+    module.constructor.prototype.load = function (moduleIdentifier, onModuleLoaded) {
+        onModuleLoaded();
+    };
+
+    assertArgumentsValidated(module.load, { moduleIdentifier: String, onModuleLoaded: Function });
+
+    module.constructor.prototype.load = originalModuleLoad;
+});
+
+test("Overriden provide: still has its arguments validated, without the plug-in author having to do so specifically", function () {
+    var originalModuleProvide = module.constructor.prototype.provide;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        onAllProvided();
+    };
+
+    assertArgumentsValidated(module.provide, { dependencies: Array, onAllProvided: Function });
+
+    module.constructor.prototype.provide = originalModuleProvide;
+});
+
+test("Overriden declare: still has its arguments validated, without the plug-in author having to do so specifically", function () {
+    var originalModuleDeclare = module.constructor.prototype.declare;
+    module.constructor.prototype.declare = function () { };
+
+    // Case 1: Just the factory function
+    assertArgumentsValidated(module.declare, { moduleFactory: Function });
+
+    // Case 2: dependencies array plus factory function
+    assertArgumentsValidated(module.declare, { dependencies: Array, moduleFactory: Function });
+
+    module.constructor.prototype.declare = originalModuleDeclare;
+});
+
+test("Overriden eventually: still has its argument validated, without the plug-in author having to do so specifically", function () {
+    var originalModuleEventually = module.constructor.prototype.eventually;
+    module.constructor.prototype.eventually = function () { };
+
+    assertArgumentsValidated(module.eventually, { functionToCallEventually: Function });
+
+    module.constructor.prototype.eventually = originalModuleEventually;
 });

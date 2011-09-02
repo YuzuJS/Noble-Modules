@@ -20,17 +20,6 @@ asyncTest("Overriden load: is called when calling module.provide, with the corre
     });
 });
 
-test("Overriden load: still has its arguments validated, without the plug-in author having to do so specifically", function () {
-    var originalModuleLoad = module.constructor.prototype.load;
-    module.constructor.prototype.load = function (moduleIdentifier, onModuleLoaded) {
-        onModuleLoaded();
-    };
-
-    assertArgumentsValidated(module.load, { moduleIdentifier: String, onModuleLoaded: Function });
-
-    module.constructor.prototype.load = originalModuleLoad;
-});
-
 test("Overriden provide: is called to provide the unmemoized dependencies when declaring the main module", function () {
     var idsOfModulesProvideIsCalledOn = [];
     var dependenciesProvideWasCalledWith = [];
@@ -171,17 +160,6 @@ asyncTest("Overriden provide: can provide a dependency to a dependency of a memo
     });
 });
 
-test("Overriden provide: still has its arguments validated, without the plug-in author having to do so specifically", function () {
-    var originalModuleProvide = module.constructor.prototype.provide;
-    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
-        onAllProvided();
-    };
-
-    assertArgumentsValidated(module.provide, { dependencies: Array, onAllProvided: Function });
-
-    module.constructor.prototype.provide = originalModuleProvide;
-});
-
 test("Overriden declare: is called when declaring the main module", function () {
     var dependenciesDeclareWasCalledWith = null;
     var factoryFunctionDeclareWasCalledWith = null;
@@ -218,26 +196,4 @@ asyncModuleTest("Overriden declare: is called when using module.load", function 
         module.constructor.prototype.declare = originalModuleDeclare;
         start();
     });
-});
-
-test("Overriden declare: still has its arguments validated, without the plug-in author having to do so specifically", function () {
-    var originalModuleDeclare = module.constructor.prototype.declare;
-    module.constructor.prototype.declare = function () { };
-
-    // Case 1: Just the factory function
-    assertArgumentsValidated(module.declare, { moduleFactory: Function });
-
-    // Case 2: dependencies array plus factory function
-    assertArgumentsValidated(module.declare, { dependencies: Array, moduleFactory: Function });
-
-    module.constructor.prototype.declare = originalModuleDeclare;
-});
-
-test("Overriden eventually: still has its argument validated, without the plug-in author having to do so specifically", function () {
-    var originalModuleEventually = module.constructor.prototype.eventually;
-    module.constructor.prototype.eventually = function () { };
-
-    assertArgumentsValidated(module.eventually, { functionToCallEventually: Function });
-
-    module.constructor.prototype.eventually = originalModuleEventually;
 });
