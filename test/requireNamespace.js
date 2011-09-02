@@ -1,23 +1,23 @@
 newTestSet("require namespace");
 
 moduleTest("id: when given an absolute ID, returns it directly", function (require, exports, module) {
-    strictEqual(require.id("demos/restaurants"), "demos/restaurants", "It returned what it was given for the case with no ..s or .s");
+    strictEqual(require.id("demos/math"), "demos/math", "It returned what it was given for the case with no ..s or .s");
 });
 
 moduleTest("id: canonicalizes relative identifiers", function (require, exports, module) {
-    strictEqual(require.id("./demos/restaurants"), "demos/restaurants", "It figured out ./ relative to the main module");
-    strictEqual(require.id("demos/../demos/restaurants"), "demos/restaurants", "It figured out demos/../demos");
-    strictEqual(require.id("demos/../demos/circular/../theForce"), "demos/theForce", "It figured out an identifier with two ../s");
+    strictEqual(require.id("./demos/math"), "demos/math", "It figured out ./ relative to the main module");
+    strictEqual(require.id("demos/../demos/math"), "demos/math", "It figured out demos/../demos");
+    strictEqual(require.id("demos/../demos/circular/../area"), "demos/area", "It figured out an identifier with two ../s");
 });
 
 moduleTest("uri: turns an absolute ID into the corresponding URI", function (require, exports, module) {
-    strictEqual(require.uri("demos/restaurants"), "demos/restaurants.js", "It only appended '.js' for the case with no ..s or .s");
+    strictEqual(require.uri("demos/math"), "demos/math.js", "It only appended '.js' for the case with no ..s or .s");
 });
 
 moduleTest("uri: turns relative identifiers into absolute URIs", function (require, exports, module) {
-    strictEqual(require.uri("./demos/restaurants"), "demos/restaurants.js", "It figured out ./ relative to the main module");
-    strictEqual(require.uri("demos/../demos/restaurants"), "demos/restaurants.js", "It figured out demos/../demos");
-    strictEqual(require.uri("demos/../demos/circular/../theForce"), "demos/theForce.js", "It figured out an identifier with two ../s");
+    strictEqual(require.uri("./demos/math"), "demos/math.js", "It figured out ./ relative to the main module");
+    strictEqual(require.uri("demos/../demos/math"), "demos/math.js", "It figured out demos/../demos");
+    strictEqual(require.uri("demos/../demos/circular/../area"), "demos/area.js", "It figured out an identifier with two ../s");
 });
 
 moduleTest("memoize: throws an error when trying to memoize a module that is already memoized", function (require, exports, module) {
@@ -63,5 +63,5 @@ moduleTest("require: throws an error for nonextant module", function (require, e
 moduleTest("require: throws an error for extant, but not provided, module", function (require, exports, module) {
     raises(function () {
         require("demos/math");
-    }, Error, "Calling require threw an error when requesting the demos/math module");
+    }, Error, "Calling require threw an error when requesting the unprovided module");
 });

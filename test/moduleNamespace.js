@@ -58,8 +58,8 @@ asyncModuleTest("load: when called twice in a row for the same nonextant module,
 });
 
 asyncModuleTest("load: does not memoize the loaded module", function (require, exports, module) {
-    module.load("demos/vader", function onModuleLoaded() {
-        strictEqual(require.isMemoized("demos/vader"), false, "demos/vader was not memoized");
+    module.load("demos/math", function onModuleLoaded() {
+        strictEqual(require.isMemoized("demos/math"), false, "The module was not memoized");
         start();
     });
 });
@@ -72,25 +72,25 @@ asyncModuleTest("provide: passing an empty dependency array still results in the
 });
 
 asyncModuleTest("provide: when passing multiple dependencies, all of them are memoized by the time the callback is called", function (require, exports, module) {
-    module.provide(["demos/restaurants", "demos/hotsauce"], function onModulesProvided() {
-        strictEqual(require.isMemoized("demos/restaurants"), true, "First dependency has been memoized/provided");
-        strictEqual(require.isMemoized("demos/hotsauce"), true, "Second dependency has been memoized/provided");
+    module.provide(["demos/area", "demos/perimeter"], function onModulesProvided() {
+        strictEqual(require.isMemoized("demos/area"), true, "First dependency is memoized");
+        strictEqual(require.isMemoized("demos/perimeter"), true, "Second dependency is memoized");
         start();
     });
 });
 
 asyncModuleTest("provide: understands relative identifiers", function (require, exports, module) {
-    module.provide(["demos/../demos/restaurants"], function onModulesProvided() {
-        strictEqual(require.isMemoized("demos/restaurants"), true, "It figured out demos/../demos");
+    module.provide(["demos/../demos/math"], function onModulesProvided() {
+        strictEqual(require.isMemoized("demos/math"), true, "It figured out demos/../demos");
         start();
     });
 });
 
 asyncModuleTest("provide: still calls the callback even if one of the modules in the dependencies array doesn't exist", function (require, exports, module) {
-    module.provide(["asdf", "demos/restaurants"], function onModulesProvided() {
+    module.provide(["asdf", "demos/math"], function onModulesProvided() {
         ok(true, "Callback still got called");
-        strictEqual(require.isMemoized("demos/restaurants"), true, "The extant module got memoized");
-        strictEqual(require.isMemoized("asdf"), false, "The nonextant module did not get memoized");
+        strictEqual(require.isMemoized("demos/math"), true, "The extant module is memoized");
+        strictEqual(require.isMemoized("asdf"), false, "The nonextant module is not memoized");
 
         start();
     });
@@ -134,7 +134,7 @@ asyncModuleTest("provide: providing an extant module then a nonextant module doe
 
 // See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
 asyncModuleTest("provide: does not modify module.dependencies", function (require, exports, module) {
-    module.provide(["demos/restaurants"], function onModulesProvided() {
+    module.provide(["demos/math"], function onModulesProvided() {
         deepEqual(module.dependencies, [], "The dependencies array is still empty.");
 
         start();
@@ -143,9 +143,9 @@ asyncModuleTest("provide: does not modify module.dependencies", function (requir
 
 // See http://groups.google.com/group/commonjs/browse_thread/thread/50d4565bd07e03cb
 asyncModuleTest("provide: does not make labels available to require", function (require, exports, module) {
-    module.provide([{ restaurants: "demos/restaurants" }], function onModulesProvided() {
+    module.provide([{ math: "demos/math" }], function onModulesProvided() {
         raises(function () {
-            require("restaurants");
+            require("math");
         }, "Trying to require using the label throws an error");
 
         start();
