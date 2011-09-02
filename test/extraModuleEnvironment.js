@@ -1,16 +1,5 @@
 newTestSet("Extra-module environment");
 
-test("require: disallows replacement, deletion, or extension", function () {
-    assertNotWritable(function () { return require; }, function () { require = "blah"; }, "Global require");
-    assertNotConfigurable(function () { return require; }, function () { delete require; }, "Global require");
-    assertNotExtensible(require, "Global require");
-});
-
-test("module: disallows replacement or deletion", function () {
-    assertNotWritable(function () { return module; }, function () { module = "blah"; }, "Global module");
-    assertNotConfigurable(function () { return module; }, function () { delete module; }, "Global module");
-});
-
 asyncTest("module.main: declaring a main module properly sets module.main", function () {
     var mainModule;
 

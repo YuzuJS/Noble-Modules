@@ -1,9 +1,5 @@
 newTestSet("require namespace");
 
-moduleTest("id: validates its argument", function (require, exports, module) {
-    assertArgumentsValidated(require.id, { moduleIdentifier: String });
-});
-
 moduleTest("id: when given an absolute ID, returns it directly", function (require, exports, module) {
     strictEqual(require.id("demos/restaurants"), "demos/restaurants", "It returned what it was given for the case with no ..s or .s");
 });
@@ -14,10 +10,6 @@ moduleTest("id: canonicalizes relative identifiers", function (require, exports,
     strictEqual(require.id("demos/../demos/circular/../theForce"), "demos/theForce", "It figured out an identifier with two ../s");
 });
 
-moduleTest("uri: validates its argument", function (require, exports, module) {
-    assertArgumentsValidated(require.uri, { moduleIdentifier: String });
-});
-
 moduleTest("uri: turns an absolute ID into the corresponding URI", function (require, exports, module) {
     strictEqual(require.uri("demos/restaurants"), "demos/restaurants.js", "It only appended '.js' for the case with no ..s or .s");
 });
@@ -26,10 +18,6 @@ moduleTest("uri: turns relative identifiers into absolute URIs", function (requi
     strictEqual(require.uri("./demos/restaurants"), "demos/restaurants.js", "It figured out ./ relative to the main module");
     strictEqual(require.uri("demos/../demos/restaurants"), "demos/restaurants.js", "It figured out demos/../demos");
     strictEqual(require.uri("demos/../demos/circular/../theForce"), "demos/theForce.js", "It figured out an identifier with two ../s");
-});
-
-moduleTest("memoize: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(require.memoize, { id: String, dependencies: Array, moduleFactory: Function });
 });
 
 moduleTest("memoize: throws an error when trying to memoize a module that is already memoized", function (require, exports, module) {
@@ -66,14 +54,6 @@ moduleTest('memoize: works even for a module named "hasOwnProperty"', function (
     deepEqual(memoized, { hi: "hello" }, "The memoized module was provided to require");
 });
 
-moduleTest("isMemoized: validates its argument", function (require, exports, module) {
-    assertArgumentsValidated(require.isMemoized, { id: String });
-});
-
-moduleTest("require: validates its argument", function (require, exports, module) {
-    assertArgumentsValidated(require, { moduleIdentifier: String });
-});
-
 moduleTest("require: throws an error for nonextant module", function (require, exports, module) {
     raises(function () {
         require("asdf");
@@ -84,9 +64,4 @@ moduleTest("require: throws an error for extant, but not provided, module", func
     raises(function () {
         require("demos/math");
     }, Error, "Calling require threw an error when requesting the demos/math module");
-});
-
-moduleTest("Unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
-    strictEqual(require.paths, undefined, "require.paths is not defined");
-    strictEqual(require.main, undefined, "require.main is not defined");
 });

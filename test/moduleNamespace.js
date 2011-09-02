@@ -1,29 +1,5 @@
 newTestSet("module namespace");
 
-moduleTest("id: cannot mess with", function (require, exports, module) {
-    assertNotWritable(function () { return module.id }, function () { module.id = "blaaah"; }, "module.id");
-    assertNotConfigurable(function () { return module.id }, function () { delete module.id; }, "module.id");
-});
-
-moduleTest("dependencies: cannot mess with", function (require, exports, module) {
-    assertNotWritable(function () { return module.dependencies }, function () { module.dependencies = ["a", "b"]; }, "module.dependencies");
-    assertNotConfigurable(function () { return module.dependencies }, function () { delete module.dependencies; }, "module.dependencies");
-
-    var dependenciesBeforePush = module.dependencies.slice();
-    module.dependencies.push("c");
-    deepEqual(dependenciesBeforePush, module.dependencies, "After attempting to push a new element onto module.dependencies, its items did not change");
-});
-
-moduleTest("declare: validates its arguments", function (require, exports, module) {
-    // Case 1: Just the factory function
-    assertArgumentsValidated(module.declare, { moduleFactory: Function });
-
-    // Case 2: dependencies array plus factory function
-    assertArgumentsValidated(module.declare, { dependencies: Array, moduleFactory: Function });
-
-    // TODO: test for validation that parameters are always either strings or objects that contain only string properties?
-});
-
 asyncTest("declare: accepts labeled dependency objects and correctly provides them to factory function's require", function () {
     module.declare([{ mathLabel: "demos/math" }], function (require, exports, module) {
         strictEqual(require.id("mathLabel"), "demos/math", "The label was translated into the correct ID when using require.id");
@@ -35,10 +11,6 @@ asyncTest("declare: accepts labeled dependency objects and correctly provides th
 
         start();
     });
-});
-
-moduleTest("load: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(module.load, { moduleIdentifier: String, onModuleLoaded: Function });
 });
 
 asyncModuleTest("load: when called twice in a row for the same module, both callbacks fire", function (require, exports, module) {
@@ -90,10 +62,6 @@ asyncModuleTest("load: does not memoize the loaded module", function (require, e
         strictEqual(require.isMemoized("demos/vader"), false, "demos/vader was not memoized");
         start();
     });
-});
-
-moduleTest("provide: validates its arguments", function (require, exports, module) {
-    assertArgumentsValidated(module.provide, { dependencies: Array, onAllProvided: Function });
 });
 
 asyncModuleTest("provide: passing an empty dependency array still results in the callback being called", function (require, exports, module) {
@@ -184,10 +152,6 @@ asyncModuleTest("provide: does not make labels available to require", function (
     });
 });
 
-moduleTest("eventually: validates its argument", function (require, exports, module) {
-    assertArgumentsValidated(module.eventually, { functionToCallEventually: Function });
-});
-
 asyncModuleTest("eventually: causes the function to be called within a second", function (require, exports, module) {
     var wasCalled = false;
     var gaveUpAlready = false;
@@ -210,8 +174,4 @@ asyncModuleTest("eventually: causes the function to be called within a second", 
             start();
         }
     }, 1000);
-});
-
-moduleTest("Unsupported and deprecated parts of the spec are not defined", function (require, exports, module) {
-    strictEqual(module.uri, undefined, "module.uri is not defined");
 });
