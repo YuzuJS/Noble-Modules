@@ -2,8 +2,7 @@ Noble Modules
 =============
 **A NobleJS production**
 
-Copyright © 2011 Barnesandnoble.com llc
-Released under [MIT license][1]
+Copyright © 2011 Barnesandnoble.com llc. Released under the [MIT License][1].
 
 
 Introduction
@@ -24,7 +23,7 @@ process.
 
 Unfortunately, many browsers in use today (the most relevant, perhaps, being Internet Explorer 8 and Safari 5) do not
 completely support ECMAScript 5. And Internet Explorer has always had [a nonstandard script-loading implementation][7];
-even Internet Explorer 10 (platform preview 1) does not not rectify this situation. Fortunately, these problems are 
+even Internet Explorer 10 (platform preview 1) does not rectify this situation. Fortunately, these problems are 
 not insurmountable: the former can be overcome with the [es5-shim][8] library, and the latter by using the
 included `nobleModulesInIE.js` module provider plug-in described below.
 
@@ -50,7 +49,7 @@ We bundle two module provider plug-ins with Noble Modules:
    for those who do not need to support Internet Explorer's degenerate script-loading implementation.
 
 Additionally, Noble Modules automatically memoizes a `nobleModules` module which has several methods useful for
-debugging or other special environments:
+debugging or other special requirements:
 
  * `require("nobleModules").setDebugOptions({ disableCaching, warnAboutUndeclaredDependencies })`
  * `require("nobleModules").reset({ mainModuleDirectory, withDebugOptions, keepPluginOverrides })`
