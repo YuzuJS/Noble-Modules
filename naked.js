@@ -1,11 +1,9 @@
-/* naked.js
- *
- * Copyright (c) 2011 Barnesandnoble.com, llc
- * Released under MIT license (see https://github.com/NobleJS/Noble-Modules/blob/master/MIT-LICENSE.txt)
- */
- (function () {
-    // NOTE: requires jQuery; we didn't want to implement XHR and promises ourselves.
+// Copyright © 2011 Barnesandnoble.com llc
+// Released under the MIT License (see MIT-LICENSE.txt).
 
+// NOTE: requires jQuery; we didn't want to implement XHR and promises ourselves.
+
+(function () {
     if (!module.constructor.prototype.load) {
         throw new Error("The Modules/2.0 implementation in use does not support module provider plug-ins.");
     }
@@ -14,7 +12,7 @@
     var loadPromises = {};
 
     // TODO: document requireRegExp and consider whether or not declareRegExp should be more like requireRegExp.
-    // Both borrowed from BravoJS at http://code.google.com/p/bravojs/source/browse/plugins/jquery-loader/jquery-loader.js
+    // Both from BravoJS: http://code.google.com/p/bravojs/source/browse/plugins/jquery-loader/jquery-loader.js
     var declareRegExp = /(^|[\r\n])\s*module.declare\s*\(/;
     var requireRegExp = /\/\/.*|\/\*[\s\S]*?\*\/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[;=(,:!^]\s*\/(?:\\.|[^\/\\])+\/|(?:^|\W)\s*require\s*\(\s*("(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*')\s*\)/g;
 
@@ -44,7 +42,12 @@
     function makeSourceToEvalForNaked(uri, rawSource) {
         var dependencies = scrapeDependenciesFrom(rawSource);
 
-        return "module.declare([" + dependencies.join(", ") + "], function (require, exports, module) {\n" + rawSource + "\n})" + makeSourceUrlString(uri);
+        return "module.declare(["
+             + dependencies.join(", ")
+             + "], function (require, exports, module) {\n"
+             + rawSource
+             + "\n})"
+             + makeSourceUrlString(uri);
     }
 
     function evalModule(rawSource, uri) {
@@ -59,7 +62,8 @@
         var id = require.id(moduleIdentifier);
         var uri = require.uri(id);
 
-        // Only do the loading once, but store a promise so that future calls to module.load execute the module.declare (as per the spec) and get their callbacks called.
+        // Only do the loading once, but store a promise so that future calls to module.load execute the module.declare
+        // (as per the spec) and get their callbacks called.
         if (!Object.prototype.hasOwnProperty.call(loadPromises, id)) {
             loadPromises[id] = jQuery.ajax({ url: uri, dataType: "text" });
         }

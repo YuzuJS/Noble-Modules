@@ -1,11 +1,7 @@
-/* nobleModules.js
- *
- * A CommonJS Modules/2.0 implementation
- *
- * Copyright (c) 2011 Barnesandnoble.com, llc
- * Released under MIT license (see https://github.com/NobleJS/Noble-Modules/blob/master/MIT-LICENSE.txt)
- */
- (function (global, undefined) {
+// Copyright © 2011 Barnesandnoble.com llc
+// Released under the MIT License (see MIT-LICENSE.txt).
+
+(function (global, undefined) {
     var TERM_DELIMITER = "/";
     var CURRENT_DIRECTORY = ".";
     var PARENT_DIRECTORY = "..";
