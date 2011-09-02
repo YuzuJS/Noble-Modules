@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Noble Modules QUnit Tests</title>
+    <title>Noble Modules QUnit Tests, applied to BravoJS</title>
 
     <link rel="stylesheet" href="lib/qunit.css" />
 
@@ -12,39 +12,54 @@
     <script src="lib/qunit.js"></script>
     <script src="lib/helpers.js"></script>
 
-    <script src="../nobleModules.js"></script>
-    <script src="../nobleModulesInIE.js"></script>
+    <script src="../bravo.js" id="BravoJS"></script>
 
     <script>
-        // NobleModules specific hooks into the test runner.
-        // Different module loaders will have different versions of these.
-        window.moduleTestsLifecycle = {
-            setup: function () {
-                require("nobleModules").setDebugOptions({ disableCaching: true });
-            },
-            teardown: function () {
-                require("nobleModules").reset({ keepPluginOverrides: true });
-            }
-        };
+        // BravoJS-specific hooks into the test runner.
+        (function () {
+            var originalNumberOfScriptEls = document.getElementsByTagName("script").length;
+
+            window.moduleTestsLifecycle = {
+                setup: function () { },
+                teardown: function () {
+                    bravojs.reset();
+
+                    // bravojs.reset() does not reinstate the initial module.declare function, so it does not allow us 
+                    // to declare a new main module. Manually reinstate it using code from near the bottom of bravo.js.
+                    module.declare = function main_module_declare(dependencies, moduleFactory) {
+                        if (typeof dependencies === "function") {
+                            moduleFactory = dependencies;
+                            dependencies = [];
+                        }
+
+                        bravojs.initializeMainModule(dependencies, moduleFactory, '');
+                    };
+
+                    // Remove inserted <script>s from the DOM that were not originally there, to provide a clean slate.
+                    var scriptEls = document.getElementsByTagName("script");
+                    for (var i = originalNumberOfScriptEls; i < scriptEls.length; ++i) {
+                        scriptEls[i].parentElement.removeChild(scriptEls[i]);
+                    }
+                }
+            };
+        }());
     </script>
 </head>
 <body>
     <section id="qunit">
-        <h1 id="qunit-header">Noble Modules QUnit Tests</h1>
+        <h1 id="qunit-header">Noble Modules QUnit Tests, applied to BravoJS</h1>
         <h2 id="qunit-banner"></h2>
         <div id="qunit-testrunner-toolbar"></div>
         <h2 id="qunit-userAgent"></h2>
         <ol id="qunit-tests"></ol>
         <div id="qunit-fixture"></div>
     </section>
-    
+
     <script src="extraModuleEnvironment.js"></script>
     <script src="requireNamespace.js"></script>
     <script src="moduleNamespace.js"></script>
     <script src="recursiveProvision.js"></script>
     <script src="circularDependencies.js"></script>
     <script src="moduleProviderPlugins.js"></script>
-    <script src="pitOfSuccess.js"></script>
-    <script src="debugModule.js"></script>
 </body>
 </html>
