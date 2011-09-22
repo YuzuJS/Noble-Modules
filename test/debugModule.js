@@ -27,8 +27,8 @@ asyncTest("By default, scripts are cached", function () {
         var debugScriptEl = document.head.querySelector("script[src^='demos/math.js?']");
         var directlyIncludedScriptEl = document.head.querySelector("script[src='demos/math.js']");
         
-        notStrictEqual(directlyIncludedScriptEl, null, "In non-debug mode, the <script /> element was included directly");
-        strictEqual(debugScriptEl, null, "In non-debug mode, the <script /> element was not included with a query string");
+        notStrictEqual(directlyIncludedScriptEl, null, "With no debug options set, the <script /> element was included directly");
+        strictEqual(debugScriptEl, null, "With no debug options set, the <script /> element was not included with a query string");
 
         start();
     });
@@ -44,8 +44,26 @@ asyncTest("If requested, caching is prevented", function () {
         var debugScriptEl = document.head.querySelector("script[src^='demos/math.js?']");
         var directlyIncludedScriptEl = document.head.querySelector("script[src='demos/math.js']");
 
-        strictEqual(directlyIncludedScriptEl, null, "In debug mode, the <script /> element was not included directly");
-        notStrictEqual(debugScriptEl, null, "In debug mode, the <script /> element was included with a query string");
+        strictEqual(directlyIncludedScriptEl, null, "With disable caching set to true, the <script /> element was not included directly");
+        notStrictEqual(debugScriptEl, null, "With disable caching set to true, the <script /> element was included with a query string");
+
+        start();
+    });
+});
+
+asyncTest("Multiple calls to setDebugOptions does not reset disable caching", function () {
+    var debugModule = require("nobleModules");
+
+    debugModule.reset();
+    debugModule.setDebugOptions({ disableCaching: true });
+	debugModule.setDebugOptions({ warnAboutUndeclaredDependencies: true });
+
+    module.declare(["demos/math"], function (require, exports, module) {
+        var debugScriptEl = document.head.querySelector("script[src^='demos/math.js?']");
+        var directlyIncludedScriptEl = document.head.querySelector("script[src='demos/math.js']");
+
+        strictEqual(directlyIncludedScriptEl, null, "After setting 2nd debug option, the <script /> element was not included directly");
+        notStrictEqual(debugScriptEl, null, "After setting 2nd debug option, the <script /> element was included with a query string");
 
         start();
     });
