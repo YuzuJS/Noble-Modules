@@ -821,11 +821,10 @@
 
             debugOptions = debugOptions || {};
             Object.keys(DEFAULT_DEBUG_OPTIONS).forEach(function (optionName) {
-                console.log("options has property?", optionName, options);
                 if (options.hasOwnProperty(optionName)) {
-	                debugOptions[optionName] = typeof options[optionName] === typeof DEFAULT_DEBUG_OPTIONS[optionName]
-	                                               ? options[optionName]
-	                                               : DEFAULT_DEBUG_OPTIONS[optionName];
+                    debugOptions[optionName] = typeof options[optionName] === typeof DEFAULT_DEBUG_OPTIONS[optionName]
+                                                   ? options[optionName]
+                                                   : DEFAULT_DEBUG_OPTIONS[optionName];
                 }
             });
         },
