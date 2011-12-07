@@ -608,6 +608,7 @@
         }
         //#endregion
 
+        //#region Module declaration implementation helpers
         function initializeMainModule(dependencies, moduleFactory) {
             moduleObjectFactory.setMainModuleExports({});
             memoizeAndProvideDependencies(MAIN_MODULE_ID, dependencies, moduleFactory, function onMainModuleReady() {
@@ -616,10 +617,30 @@
             });
         }
 
+        // RegExp and function based on BravoJS, which says "mostly borrowed from FlyScript."
+        // NB: requireRegExp has two capturing clauses: one for double quotes, and one for single.
+        // It does not capture the quotes (unlike BravoJS/FlyScript).
+        var requireRegExp = /\/\/.*|\/\*[\s\S]*?\*\/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[;=(,:!^]\s*\/(?:\\.|[^\/\\])+\/|(?:^|\W)\s*require\s*\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)')\s*\)/g;
+
+        function scrapeDependenciesFrom(rawSource) {
+            var dependencies = [];
+
+            var result = null;
+            while ((result = requireRegExp.exec(rawSource)) !== null) {
+                var moduleIdentifier = result[1] || result[2];
+                if (moduleIdentifier) {
+                    dependencies.push(moduleIdentifier);
+                }
+            }
+
+            return dependencies;
+        }
+        //#endregion
+
         function declareImpl(dependencies, moduleFactory) {
             if (moduleFactory === undefined) {
                 moduleFactory = dependencies;
-                dependencies = [];
+                dependencies = scrapeDependenciesFrom(moduleFactory.toString());
             }
 
             if (!globalModule.main) {

@@ -13,6 +13,19 @@ asyncTest("declare: accepts labeled dependency objects and correctly provides th
     });
 });
 
+asyncModuleTest("declare: infers dependencies if only a factory function is given", function () {
+    module.provide(["demos/squares"], function () {
+        var squares = require("demos/squares");
+
+        strictEqual(squares.area(3), 9, "demos/area dependency was inferred and works");
+        strictEqual(squares.perimeter(3), 12, "demos/perimeter dependency was inferred and works");
+
+        strictEqual(require.isMemoized(require.id("demos/diamond/bottom")), false, "Commented-out demos/diamond/bottom dependency was not memoized");
+
+        start();
+    });
+});
+
 asyncModuleTest("load: when called twice in a row for the same module, both callbacks fire", function (require, exports, module) {
     var numberOfLoadsSoFar = 0;
 
