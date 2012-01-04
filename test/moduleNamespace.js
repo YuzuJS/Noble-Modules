@@ -26,6 +26,24 @@ asyncModuleTest("declare: infers dependencies if only a factory function is give
     });
 });
 
+asyncTest("declare: dependency inference does not infer the same dependency twice", function () {
+    var dependenciesProvideWasCalledWith = [];
+
+    var originalModuleProvide = module.constructor.prototype.provide;
+    module.constructor.prototype.provide = function (dependencies, onAllProvided) {
+        dependenciesProvideWasCalledWith = dependenciesProvideWasCalledWith.concat(dependencies);
+
+        originalModuleProvide.call(this, dependencies, onAllProvided);
+    };
+
+    module.declare(["demos/circles"], function () {
+        deepEqual(dependenciesProvideWasCalledWith, ["demos/circles", "demos/math"], "module.provide was called only once for the demos/math dependency");
+
+        module.constructor.prototype.provide = originalModuleProvide;
+        start();
+    });
+});
+
 asyncModuleTest("load: when called twice in a row for the same module, both callbacks fire", function (require, exports, module) {
     var numberOfLoadsSoFar = 0;
 

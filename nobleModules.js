@@ -623,17 +623,17 @@
         var requireRegExp = /\/\/.*|\/\*[\s\S]*?\*\/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[;=(,:!^]\s*\/(?:\\.|[^\/\\])+\/|(?:^|\W)\s*require\s*\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)')\s*\)/g;
 
         function scrapeDependenciesFrom(rawSource) {
-            var dependencies = [];
+            var dependencies = createSet();
 
             var result = null;
             while ((result = requireRegExp.exec(rawSource)) !== null) {
                 var moduleIdentifier = result[1] || result[2];
                 if (moduleIdentifier) {
-                    dependencies.push(moduleIdentifier);
+                    dependencies.add(moduleIdentifier);
                 }
             }
 
-            return dependencies;
+            return dependencies.values();
         }
         //#endregion
 
