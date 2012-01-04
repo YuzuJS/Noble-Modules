@@ -1,11 +1,11 @@
 ﻿module.declare(["./circularA"], function (require, exports, module) {
-	var circularA = require("./circularA");
+    var circularA = require("./circularA");
 
-	exports.getValue = function () {
-		return "b";
-	};
+    exports.getValue = function () {
+        return "b";
+    };
 
-	exports.getValueFromA = function () {
-		return circularA.getValue();
-	};
+    exports.getValueFromA = function () {
+        return circularA.getValue();
+    };
 })
